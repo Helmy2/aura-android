@@ -47,7 +47,7 @@ android {
 }
 
 dependencies {
-    implementation(projects.shared)
+    implementation(libs.aura.shared)
 
     implementation(platform(libs.androidx.compose.bom))
 

@@ -61,10 +61,6 @@ fun WallpaperScreen(
             is WallpaperDetailEffect.ShowError -> {
                 snackbarState.showSnackbar(it.message)
             }
-
-            null -> {
-
-            }
         }
     }
 
