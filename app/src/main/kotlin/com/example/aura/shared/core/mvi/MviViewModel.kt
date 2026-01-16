@@ -53,7 +53,7 @@ abstract class MviViewModel<S, I, E>(
                     if (newEffect != null) {
                         _effect.trySend(newEffect)
                             .onFailure {
-                                onEffectDropped(newEffect,it)
+                                onEffectDropped(newEffect, it)
                             }
                     }
                 } catch (e: Throwable) {
@@ -76,7 +76,7 @@ abstract class MviViewModel<S, I, E>(
         throwable?.printStackTrace()
     }
 
-    protected open fun onEffectDropped(effect: E, cause: Throwable?){
+    protected open fun onEffectDropped(effect: E, cause: Throwable?) {
         cause?.printStackTrace()
     }
 
