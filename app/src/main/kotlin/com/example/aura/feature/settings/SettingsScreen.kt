@@ -33,9 +33,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            AuraTransparentTopBar(
-                title = "Settings"
-            )
+            AuraTransparentTopBar(title = "Settings")
         }
     ) { paddingValues ->
         if (state.isLoading) {
@@ -50,7 +48,7 @@ fun SettingsScreen(
         } else {
             SettingsContent(
                 state = state,
-                onIntent = viewModel::sendIntent,
+                onThemeSelected = viewModel::onThemeSelected,
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -60,7 +58,7 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
+    onThemeSelected: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -68,7 +66,6 @@ private fun SettingsContent(
         contentPadding = PaddingValues(MaterialTheme.dimens.md),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.dimens.sm)
     ) {
-        // Theme Section
         item {
             Text(
                 text = "Appearance",
@@ -81,9 +78,7 @@ private fun SettingsContent(
         item {
             ThemeSelector(
                 selectedTheme = state.themeMode,
-                onThemeSelected = { mode ->
-                    onIntent(SettingsIntent.UpdateThemeMode(mode))
-                }
+                onThemeSelected = onThemeSelected
             )
         }
     }

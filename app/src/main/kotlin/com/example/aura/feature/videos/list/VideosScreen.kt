@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,37 +21,52 @@ import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.VideoGallery
 import org.koin.compose.viewmodel.koinViewModel
 
+@Suppress("ParamsComparedByRef")
 @Composable
 fun VideosScreen(
     viewModel: VideosViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val listState = rememberLazyStaggeredGridState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
             val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            totalItems > 0 && lastVisibleIndex >= (totalItems - 4) && !state.isLoading && !state.isPaginationLoading && !state.isEndReached
+
+            totalItems > 0 &&
+                    lastVisibleIndex >= (totalItems - 4) &&
+                    !state.isLoading &&
+                    !state.isPaginationLoading &&
+                    !state.isEndReached
         }
     }
 
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
-            viewModel.sendIntent(VideosIntent.LoadNextPage)
+            viewModel.onLoadNextPage()
+        }
+    }
+
+    LaunchedEffect(state.userMessage) {
+        state.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.onMessageShown()
         }
     }
 
     AuraScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AuraTransparentTopBar(
-                title = "Videos", onBackClick = {
-                    viewModel.sendIntent(VideosIntent.OnNavigateBack)
-                })
+                title = "Videos",
+                onBackClick = viewModel::onBackClicked
+            )
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            if (state.error != null) {
+            if (state.error != null && state.popularVideos.isEmpty()) {
                 Text(
                     text = "Error: ${state.error}",
                     color = MaterialTheme.colorScheme.error,
@@ -59,22 +76,16 @@ fun VideosScreen(
                 VideoGallery(
                     contentPadding = padding,
                     videos = if (state.isSearchMode) state.searchVideos else state.popularVideos,
-                    onVideoClick = { viewModel.sendIntent(VideosIntent.OnVideoClicked(it)) },
-                    onFavoriteClick = { viewModel.sendIntent(VideosIntent.OnFavoriteClicked(it)) },
+                    onVideoClick = viewModel::onVideoClicked,
+                    onFavoriteClick = viewModel::onFavoriteClicked,
                     isLoading = state.isLoading,
                     isPaginationLoading = state.isPaginationLoading,
                     searchAppBar = {
                         AuraSearchBar(
                             query = state.searchQuery,
-                            onQueryChange = {
-                                viewModel.sendIntent(
-                                    VideosIntent.OnSearchQueryChanged(
-                                        it
-                                    )
-                                )
-                            },
-                            onSearch = { viewModel.sendIntent(VideosIntent.OnSearchTriggered) },
-                            onClearSearch = { viewModel.sendIntent(VideosIntent.OnClearSearch) },
+                            onQueryChange = viewModel::onSearchQueryChanged,
+                            onSearch = viewModel::onSearchTriggered,
+                            onClearSearch = viewModel::onClearSearch,
                             isSearchActive = state.isSearchMode,
                         )
                     },
@@ -84,7 +95,8 @@ fun VideosScreen(
                         } else {
                             Text(text = "No videos found")
                         }
-                    })
+                    }
+                )
             }
         }
     }

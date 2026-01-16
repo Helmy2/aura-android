@@ -3,7 +3,7 @@ package com.example.aura.feature.favorites
 import androidx.lifecycle.viewModelScope
 import com.example.aura.domain.model.MediaContent
 import com.example.aura.domain.repository.FavoritesRepository
-import com.example.aura.shared.core.mvi.MviViewModel
+import com.example.aura.shared.core.util.StateViewModel
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination
 import kotlinx.coroutines.flow.catch
@@ -14,71 +14,44 @@ import kotlinx.coroutines.launch
 class FavoritesViewModel(
     private val favoritesRepository: FavoritesRepository,
     private val navigator: AppNavigator
-) : MviViewModel<FavoritesState, FavoritesIntent, FavoritesEffect>(
-    initialState = FavoritesState()
-) {
+) : StateViewModel<FavoritesState>(FavoritesState()) {
 
     init {
         observeFavorites()
     }
 
-    override fun reduce(
-        currentState: FavoritesState, intent: FavoritesIntent
-    ): Pair<FavoritesState, FavoritesEffect?> {
-        return when (intent) {
-            is FavoritesIntent.LoadFavorites -> currentState.copy(isLoading = true).only()
-
-            is FavoritesIntent.FavoritesLoaded -> currentState.copy(
-                items = intent.items, isLoading = false, error = null
-            ).only()
-
-            is FavoritesIntent.FavoritesLoadError -> currentState.copy(
-                isLoading = false, error = intent.message
-            ).with(FavoritesEffect.ShowError(intent.message))
-
-            is FavoritesIntent.RemoveFormFavorite -> {
-                removeItemFromFavorite(intent.item)
-                currentState.only()
+    private fun observeFavorites() {
+        favoritesRepository.observeFavorites()
+            .onEach { items ->
+                updateState { it.copy(items = items, isLoading = false, error = null) }
             }
-
-            is FavoritesIntent.RemoveError -> currentState.with(
-                FavoritesEffect.ShowError(
-                    intent.message
-                )
-            )
-
-            is FavoritesIntent.OnItemClicked -> {
-                when (intent.item) {
-                    is MediaContent.VideoContent -> navigator.navigate(
-                        Destination.VideoDetail(intent.item.video)
-                    )
-
-                    is MediaContent.WallpaperContent -> navigator.navigate(
-                        Destination.WallpaperDetail(intent.item.wallpaper)
-                    )
-                }
-                currentState.only()
+            .catch { e ->
+                updateState { it.copy(isLoading = false, error = e.message) }
             }
-
-            else -> currentState.only()
-        }
+            .launchIn(viewModelScope)
     }
 
-    private fun removeItemFromFavorite(item: MediaContent) {
+    fun onRemoveFavorite(item: MediaContent) {
         viewModelScope.launch {
             try {
                 favoritesRepository.removeFromFavorite(item)
             } catch (e: Exception) {
-                sendIntent(FavoritesIntent.RemoveError(e.message ?: "Failed to remove"))
+                updateState { it.copy(userMessage = e.message ?: "Failed to remove") }
             }
         }
     }
 
-    private fun observeFavorites() {
-        favoritesRepository.observeFavorites().onEach {
-            sendIntent(FavoritesIntent.FavoritesLoaded(it))
-        }.catch { e ->
-            sendIntent(FavoritesIntent.FavoritesLoadError(e.message ?: "Unknown error"))
-        }.launchIn(viewModelScope)
+    fun onItemClicked(item: MediaContent) {
+        when (item) {
+            is MediaContent.VideoContent ->
+                navigator.navigate(Destination.VideoDetail(item.video))
+
+            is MediaContent.WallpaperContent ->
+                navigator.navigate(Destination.WallpaperDetail(item.wallpaper))
+        }
+    }
+
+    fun onMessageShown() {
+        updateState { it.copy(userMessage = null) }
     }
 }

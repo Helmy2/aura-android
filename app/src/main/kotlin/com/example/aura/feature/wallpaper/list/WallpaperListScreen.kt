@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,12 +21,14 @@ import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.WallpaperGallery
 import org.koin.compose.viewmodel.koinViewModel
 
+@Suppress("ParamsComparedByRef")
 @Composable
-fun WallpaperListScreen() {
-    val viewModel = koinViewModel<WallpaperListViewModel>()
+fun WallpaperListScreen(
+    viewModel: WallpaperListViewModel = koinViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-
     val listState = rememberLazyStaggeredGridState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -41,22 +45,28 @@ fun WallpaperListScreen() {
 
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
-            viewModel.sendIntent(WallpaperListIntent.LoadNextPage)
+            viewModel.onLoadNextPage()
+        }
+    }
+
+    LaunchedEffect(state.userMessage) {
+        state.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.onMessageShown()
         }
     }
 
     AuraScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AuraTransparentTopBar(
                 title = "Wallpapers",
-                onBackClick = {
-                    viewModel.sendIntent(WallpaperListIntent.OnNavigateBack)
-                }
+                onBackClick = viewModel::onBackClicked
             )
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            if (state.error != null) {
+            if (state.error != null && state.wallpapers.isEmpty()) {
                 Text(
                     text = "Error: ${state.error}",
                     color = MaterialTheme.colorScheme.error,
@@ -67,30 +77,25 @@ fun WallpaperListScreen() {
                     contentPadding = padding,
                     listState = listState,
                     wallpapers = if (state.isSearchMode) state.searchWallpapers else state.wallpapers,
-                    onWallpaperClick = {
-                        viewModel.sendIntent(WallpaperListIntent.OnWallpaperClicked(it))
-                    },
-                    onWallpaperFavoriteClick = {
-                        viewModel.sendIntent(WallpaperListIntent.ToggleFavorite(it))
-                    },
+                    onWallpaperClick = viewModel::onWallpaperClicked,
+                    onWallpaperFavoriteClick = viewModel::onToggleFavorite,
                     isPaginationLoading = state.isPaginationLoading,
                     isLoading = state.isLoading,
                     searchAppBar = {
                         AuraSearchBar(
                             query = state.searchQuery,
-                            onQueryChange = {
-                                viewModel.sendIntent(
-                                    WallpaperListIntent.OnSearchQueryChanged(
-                                        it
-                                    )
-                                )
-                            },
-                            onSearch = { viewModel.sendIntent(WallpaperListIntent.OnSearchTriggered) },
-                            onClearSearch = {
-                                viewModel.sendIntent(WallpaperListIntent.OnClearSearch)
-                            },
+                            onQueryChange = viewModel::onSearchQueryChanged,
+                            onSearch = viewModel::onSearchTriggered,
+                            onClearSearch = viewModel::onClearSearch,
                             isSearchActive = state.isSearchMode,
                         )
+                    },
+                    emptyContent = {
+                        if (state.isSearchMode) {
+                            Text(text = "No results found")
+                        } else {
+                            Text(text = "No wallpapers found")
+                        }
                     }
                 )
             }

@@ -27,6 +27,7 @@ import com.example.aura.shared.component.MediaContentGallery
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
+@Suppress("ParamsComparedByRef")
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel = koinViewModel()
@@ -34,11 +35,10 @@ fun FavoritesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        viewModel.effect.collect { effect ->
-            when (effect) {
-                is FavoritesEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
-            }
+    LaunchedEffect(state.userMessage) {
+        state.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.onMessageShown()
         }
     }
 
@@ -56,16 +56,10 @@ fun FavoritesScreen(
                 MediaContentGallery(
                     contentPadding = padding,
                     items = state.items,
-                    onItemClick = {
-                        viewModel.sendIntent(FavoritesIntent.OnItemClicked(it))
-                    },
-                    onFavoriteClick = {
-                        viewModel.sendIntent(FavoritesIntent.RemoveFormFavorite(it))
-                    },
+                    onItemClick = viewModel::onItemClicked,
+                    onFavoriteClick = viewModel::onRemoveFavorite,
                     isLoading = state.isLoading,
-                    emptyContent = {
-                        EmptyFavoritesView()
-                    }
+                    emptyContent = { EmptyFavoritesView() }
                 )
             }
         }
@@ -91,11 +85,13 @@ private fun EmptyFavoritesView(
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
             )
+
             Text(
                 text = message,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
+
             Text(
                 text = "Start adding items by tapping the heart icon",
                 style = MaterialTheme.typography.bodyMedium,
