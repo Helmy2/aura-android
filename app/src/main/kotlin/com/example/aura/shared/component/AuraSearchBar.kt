@@ -9,10 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
@@ -30,12 +31,11 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AuraSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
+    state: TextFieldState,
     onSearch: (String) -> Unit,
     onClearSearch: () -> Unit,
-    isSearchActive: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    placeholder: String = "Search..."
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -51,64 +51,53 @@ fun AuraSearchBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 4.dp)
         ) {
-            // Leading Icon
-            if (isSearchActive) {
-                IconButton(onClick = onClearSearch) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
-                    )
-                }
-            } else {
-                IconButton(onClick = {}) { // Decorative
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search"
-                    )
-                }
+            IconButton(onClick = {}) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search"
+                )
             }
 
-            // Input Field
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                if (query.isEmpty()) {
+                if (state.text.isEmpty()) {
                     Text(
-                        text = "Search wallpapers...",
+                        text = placeholder,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    singleLine = true,
+                    state = state,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            focusManager.clearFocus()
-                            onSearch(query)
-                        }
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
+                    onKeyboardAction = {
+                        focusManager.clearFocus()
+                        onSearch(state.text.toString())
+                    },
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    modifier = Modifier
+                        .fillMaxWidth()
                 )
             }
 
-            // Trailing Icon (Clear)
             AnimatedVisibility(
-                visible = query.isNotEmpty(),
+                visible = state.text.isNotEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                IconButton(onClick = { onQueryChange("") }) {
+                IconButton(onClick = {
+                    state.clearText()
+                    onClearSearch()
+                }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Clear text"

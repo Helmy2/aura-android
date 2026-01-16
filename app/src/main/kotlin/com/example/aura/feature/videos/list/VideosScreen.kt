@@ -3,6 +3,7 @@ package com.example.aura.feature.videos.list
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -29,6 +30,7 @@ fun VideosScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val listState = rememberLazyStaggeredGridState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val searchState = rememberTextFieldState()
 
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -82,19 +84,13 @@ fun VideosScreen(
                     isPaginationLoading = state.isPaginationLoading,
                     searchAppBar = {
                         AuraSearchBar(
-                            query = state.searchQuery,
-                            onQueryChange = viewModel::onSearchQueryChanged,
+                            state = searchState,
                             onSearch = viewModel::onSearchTriggered,
-                            onClearSearch = viewModel::onClearSearch,
-                            isSearchActive = state.isSearchMode,
+                            onClearSearch = viewModel::onClearSearch
                         )
                     },
                     emptyContent = {
-                        if (state.isSearchMode) {
-                            Text(text = "No results found")
-                        } else {
-                            Text(text = "No videos found")
-                        }
+                        Text(text = "No results found")
                     }
                 )
             }

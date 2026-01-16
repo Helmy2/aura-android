@@ -13,7 +13,6 @@ data class WallpaperListState(
     val currentPage: Int = 1,
     val isEndReached: Boolean = false,
 
-    val searchQuery: String = "",
     val isSearchMode: Boolean = false,
 
     val favoriteIds: Set<Long> = emptySet(),

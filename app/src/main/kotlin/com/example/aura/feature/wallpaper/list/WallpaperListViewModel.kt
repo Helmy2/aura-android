@@ -18,6 +18,8 @@ class WallpaperListViewModel(
     private val navigator: AppNavigator
 ) : StateViewModel<WallpaperListState>(WallpaperListState()) {
 
+    private var currentActiveQuery: String = ""
+
     init {
         loadWallpapers(page = 1)
         observeFavorites()
@@ -47,6 +49,8 @@ class WallpaperListViewModel(
     }
 
     private fun performSearch(query: String, page: Int) {
+        currentActiveQuery = query
+
         viewModelScope.launch {
             try {
                 val results = wallpaperRepository.searchWallpapers(query, page)
@@ -84,14 +88,10 @@ class WallpaperListViewModel(
         updateState { it.copy(isPaginationLoading = true) }
 
         if (currentState.isSearchMode) {
-            performSearch(currentState.searchQuery, nextPage)
+            performSearch(currentActiveQuery, nextPage)
         } else {
             loadWallpapers(nextPage)
         }
-    }
-
-    fun onSearchQueryChanged(query: String) {
-        updateState { it.copy(searchQuery = query) }
     }
 
     fun onSearchTriggered(query: String) {
@@ -110,10 +110,10 @@ class WallpaperListViewModel(
     }
 
     fun onClearSearch() {
+        currentActiveQuery = ""
         updateState {
             it.copy(
                 isSearchMode = false,
-                searchQuery = "",
                 isEndReached = false,
                 currentPage = 1
             )

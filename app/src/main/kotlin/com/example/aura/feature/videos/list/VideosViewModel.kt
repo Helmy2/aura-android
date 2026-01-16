@@ -18,6 +18,8 @@ class VideosViewModel(
     private val navigator: AppNavigator,
 ) : StateViewModel<VideosState>(VideosState()) {
 
+    private var currentActiveQuery: String = ""
+
     init {
         loadPopularVideos(1)
         observeFavorites()
@@ -51,6 +53,8 @@ class VideosViewModel(
     }
 
     private fun performSearch(query: String, page: Int) {
+        currentActiveQuery = query
+
         viewModelScope.launch {
             try {
                 val videos = videoRepository.searchVideos(query, page)
@@ -67,11 +71,7 @@ class VideosViewModel(
                 }
             } catch (_: Exception) {
                 updateState {
-                    it.copy(
-                        isLoading = false,
-                        isPaginationLoading = false,
-                        userMessage = "Search failed"
-                    )
+                    it.copy(isLoading = false, isPaginationLoading = false, userMessage = "Search failed")
                 }
             }
         }
@@ -93,14 +93,10 @@ class VideosViewModel(
         updateState { it.copy(isPaginationLoading = true) }
 
         if (state.isSearchMode) {
-            performSearch(state.searchQuery, nextPage)
+            performSearch(currentActiveQuery, nextPage)
         } else {
             loadPopularVideos(nextPage)
         }
-    }
-
-    fun onSearchQueryChanged(query: String) {
-        updateState { it.copy(searchQuery = query) }
     }
 
     fun onSearchTriggered(query: String) {
@@ -119,14 +115,15 @@ class VideosViewModel(
     }
 
     fun onClearSearch() {
+        currentActiveQuery = ""
         updateState {
             it.copy(
                 isSearchMode = false,
-                searchQuery = "",
                 isEndReached = false,
                 currentPage = 1
             )
         }
+
         if (currentState.popularVideos.isEmpty()) {
             updateState { it.copy(isLoading = true) }
             loadPopularVideos(1)
