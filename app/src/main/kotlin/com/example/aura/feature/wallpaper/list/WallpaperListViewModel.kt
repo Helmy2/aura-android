@@ -1,22 +1,26 @@
 package com.example.aura.feature.wallpaper.list
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.domain.repository.WallpaperRepository
-import com.example.aura.shared.core.util.StateViewModel
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.orbitmvi.orbit.ContainerHost
+import org.orbitmvi.orbit.viewmodel.container
 
 class WallpaperListViewModel(
     private val wallpaperRepository: WallpaperRepository,
     private val favoritesRepository: FavoritesRepository,
     private val navigator: AppNavigator
-) : StateViewModel<WallpaperListState>(WallpaperListState()) {
+) : ViewModel(), ContainerHost<WallpaperListState, WallpaperListSideEffect> {
+
+    override val container = container<WallpaperListState, WallpaperListSideEffect>(WallpaperListState())
 
     private var currentActiveQuery: String = ""
 
@@ -25,12 +29,12 @@ class WallpaperListViewModel(
         observeFavorites()
     }
 
-    private fun loadWallpapers(page: Int) {
+    private fun loadWallpapers(page: Int) = intent {
         viewModelScope.launch {
             try {
                 val newWallpapers = wallpaperRepository.getCuratedWallpapers(page = page)
 
-                updateState { state ->
+                reduce { 
                     val combinedWallpapers = if (page == 1) newWallpapers else state.wallpapers + newWallpapers
                     state.copy(
                         wallpapers = combinedWallpapers,
@@ -41,9 +45,7 @@ class WallpaperListViewModel(
                     )
                 }
             } catch (e: Exception) {
-                updateState {
-                    it.copy(isLoading = false, isPaginationLoading = false, error = e.message)
-                }
+                reduce { state.copy(isLoading = false, isPaginationLoading = false, error = e.message) }
             }
         }
     }
@@ -55,19 +57,22 @@ class WallpaperListViewModel(
             try {
                 val results = wallpaperRepository.searchWallpapers(query, page)
 
-                updateState { state ->
-                    val combinedResults = if (page == 1) results else state.searchWallpapers + results
-                    state.copy(
-                        searchWallpapers = combinedResults,
-                        isLoading = false,
-                        isPaginationLoading = false,
-                        currentPage = page,
-                        isEndReached = results.isEmpty()
-                    )
+                intent {
+                    reduce {
+                        val combinedResults = if (page == 1) results else state.searchWallpapers + results
+                        state.copy(
+                            searchWallpapers = combinedResults,
+                            isLoading = false,
+                            isPaginationLoading = false,
+                            currentPage = page,
+                            isEndReached = results.isEmpty()
+                        )
+                    }
                 }
             } catch (_: Exception) {
-                updateState {
-                    it.copy(isLoading = false, isPaginationLoading = false, userMessage = "Search failed")
+                intent {
+                    postSideEffect(WallpaperListSideEffect.ShowSnackbar("Search failed"))
+                    reduce { state.copy(isLoading = false, isPaginationLoading = false) }
                 }
             }
         }
@@ -81,24 +86,24 @@ class WallpaperListViewModel(
         navigator.back()
     }
 
-    fun onLoadNextPage() {
-        if (currentState.isPaginationLoading || currentState.isEndReached) return
+    fun onLoadNextPage() = intent {
+        if (state.isPaginationLoading || state.isEndReached) return@intent
 
-        val nextPage = currentState.currentPage + 1
-        updateState { it.copy(isPaginationLoading = true) }
+        val nextPage = state.currentPage + 1
+        reduce { state.copy(isPaginationLoading = true) }
 
-        if (currentState.isSearchMode) {
+        if (state.isSearchMode) {
             performSearch(currentActiveQuery, nextPage)
         } else {
             loadWallpapers(nextPage)
         }
     }
 
-    fun onSearchTriggered(query: String) {
-        if (query.isBlank()) return
+    fun onSearchTriggered(query: String) = intent {
+        if (query.isBlank()) return@intent
 
-        updateState {
-            it.copy(
+        reduce {
+            state.copy(
                 isSearchMode = true,
                 isLoading = true,
                 isEndReached = false,
@@ -109,16 +114,16 @@ class WallpaperListViewModel(
         performSearch(query, 1)
     }
 
-    fun onClearSearch() {
+    fun onClearSearch() = intent {
         currentActiveQuery = ""
-        updateState {
-            it.copy(
+        reduce {
+            state.copy(
                 isSearchMode = false,
                 isEndReached = false,
                 currentPage = 1
             )
         }
-        if (currentState.wallpapers.isEmpty()) {
+        if (state.wallpapers.isEmpty()) {
             loadWallpapers(1)
         }
     }
@@ -128,7 +133,7 @@ class WallpaperListViewModel(
             try {
                 favoritesRepository.toggleFavorite(wallpaper)
             } catch (_: Exception) {
-                updateState { it.copy(userMessage = "Failed to update favorite") }
+                intent { postSideEffect(WallpaperListSideEffect.ShowSnackbar("Failed to update favorite")) }
             }
         }
     }
@@ -137,18 +142,16 @@ class WallpaperListViewModel(
         favoritesRepository.observeFavoritesWallpapers()
             .map { favorites -> favorites.map { it.id }.toSet() }
             .onEach { favoriteIds ->
-                updateState { state ->
-                    state.copy(
-                        favoriteIds = favoriteIds,
-                        wallpapers = state.wallpapers.map { it.copy(isFavorite = it.id in favoriteIds) },
-                        searchWallpapers = state.searchWallpapers.map { it.copy(isFavorite = it.id in favoriteIds) }
-                    )
+                intent {
+                    reduce {
+                        state.copy(
+                            favoriteIds = favoriteIds,
+                            wallpapers = state.wallpapers.map { it.copy(isFavorite = it.id in favoriteIds) },
+                            searchWallpapers = state.searchWallpapers.map { it.copy(isFavorite = it.id in favoriteIds) }
+                        )
+                    }
                 }
             }
             .launchIn(viewModelScope)
-    }
-
-    fun onMessageShown() {
-        updateState { it.copy(userMessage = null) }
     }
 }

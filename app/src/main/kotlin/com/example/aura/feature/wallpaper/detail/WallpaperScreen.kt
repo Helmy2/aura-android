@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.shared.component.AuraImage
 import com.example.aura.shared.component.AuraScaffold
@@ -37,6 +36,8 @@ import com.example.aura.shared.component.SystemBarStyle
 import com.example.aura.shared.core.extensions.toColor
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 
 @Suppress("ParamsComparedByRef")
 @Composable
@@ -47,16 +48,17 @@ fun WallpaperScreen(
     SystemBarStyle(isStatusBarOnDark = true, restoreOnDispose = true)
 
     val snackbarState = remember { SnackbarHostState() }
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
 
     LaunchedEffect(wallpaper) {
         viewModel.loadWallpaper(wallpaper)
     }
 
-    LaunchedEffect(state.userMessage) {
-        state.userMessage?.let { message ->
-            snackbarState.showSnackbar(message)
-            viewModel.onMessageShown()
+    viewModel.collectSideEffect { sideEffect ->
+        when (sideEffect) {
+            is WallpaperDetailSideEffect.ShowSnackbar -> {
+                snackbarState.showSnackbar(sideEffect.message)
+            }
         }
     }
 

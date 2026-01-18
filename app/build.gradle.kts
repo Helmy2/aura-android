@@ -65,6 +65,9 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.core)
 
+    implementation(libs.orbit.viewmodel)
+    implementation(libs.orbit.compose)
+
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
 

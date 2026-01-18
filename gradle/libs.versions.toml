@@ -23,6 +23,8 @@ material3AdaptiveNavigationSuite = "1.4.0"
 media3 = "1.9.0"
 
 aura = "0.0.1"
+orbitCompose = "11.0.0"
+orbitViewmodel = "11.0.0"
 
 [libraries]
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
@@ -68,6 +70,8 @@ media3-exoplayer-dash = { group = "androidx.media3", name = "media3-exoplayer-da
 media3-ui-compose = { group = "androidx.media3", name = "media3-ui-compose", version.ref = "media3" }
 
 aura-shared = { group = "com.helmy.aura", name = "shared-android", version.ref = "aura" }
+orbit-compose = { module = "org.orbit-mvi:orbit-compose", version.ref = "orbitCompose" }
+orbit-viewmodel = { module = "org.orbit-mvi:orbit-viewmodel", version.ref = "orbitViewmodel" }
 
 [bundles]
 coil = ["coil-compose", "coil-compose-core", "coil-network-ktor3"]

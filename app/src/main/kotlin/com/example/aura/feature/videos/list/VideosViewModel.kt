@@ -1,22 +1,26 @@
 package com.example.aura.feature.videos.list
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aura.domain.model.Video
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.domain.repository.VideoRepository
-import com.example.aura.shared.core.util.StateViewModel
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination.VideoDetail
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.orbitmvi.orbit.ContainerHost
+import org.orbitmvi.orbit.viewmodel.container
 
 class VideosViewModel(
     private val videoRepository: VideoRepository,
     private val favoritesRepository: FavoritesRepository,
     private val navigator: AppNavigator,
-) : StateViewModel<VideosState>(VideosState()) {
+) : ViewModel(), ContainerHost<VideosState, VideosSideEffect> {
+
+    override val container = container<VideosState, VideosSideEffect>(VideosState())
 
     private var currentActiveQuery: String = ""
 
@@ -25,12 +29,12 @@ class VideosViewModel(
         observeFavorites()
     }
 
-    private fun loadPopularVideos(page: Int) {
+    private fun loadPopularVideos(page: Int) = intent {
         viewModelScope.launch {
             try {
                 val videos = videoRepository.getPopularVideos(page)
 
-                updateState { state ->
+                reduce {
                     val newVideos = if (page == 1) videos else state.popularVideos + videos
                     state.copy(
                         popularVideos = newVideos,
@@ -41,8 +45,8 @@ class VideosViewModel(
                     )
                 }
             } catch (e: Exception) {
-                updateState {
-                    it.copy(
+                reduce {
+                    state.copy(
                         isLoading = false,
                         isPaginationLoading = false,
                         error = e.message ?: "Failed to load videos"
@@ -59,19 +63,22 @@ class VideosViewModel(
             try {
                 val videos = videoRepository.searchVideos(query, page)
 
-                updateState { state ->
-                    val newVideos = if (page == 1) videos else state.searchVideos + videos
-                    state.copy(
-                        searchVideos = newVideos,
-                        isLoading = false,
-                        isPaginationLoading = false,
-                        currentPage = page,
-                        isEndReached = videos.isEmpty()
-                    )
+                intent {
+                    reduce {
+                        val newVideos = if (page == 1) videos else state.searchVideos + videos
+                        state.copy(
+                            searchVideos = newVideos,
+                            isLoading = false,
+                            isPaginationLoading = false,
+                            currentPage = page,
+                            isEndReached = videos.isEmpty()
+                        )
+                    }
                 }
             } catch (_: Exception) {
-                updateState {
-                    it.copy(isLoading = false, isPaginationLoading = false, userMessage = "Search failed")
+                intent {
+                    postSideEffect(VideosSideEffect.ShowSnackbar("Search failed"))
+                    reduce { state.copy(isLoading = false, isPaginationLoading = false) }
                 }
             }
         }
@@ -85,12 +92,11 @@ class VideosViewModel(
         navigator.back()
     }
 
-    fun onLoadNextPage() {
-        val state = currentState
-        if (state.isPaginationLoading || state.isEndReached) return
+    fun onLoadNextPage() = intent {
+        if (state.isPaginationLoading || state.isEndReached) return@intent
 
         val nextPage = state.currentPage + 1
-        updateState { it.copy(isPaginationLoading = true) }
+        reduce { state.copy(isPaginationLoading = true) }
 
         if (state.isSearchMode) {
             performSearch(currentActiveQuery, nextPage)
@@ -99,11 +105,11 @@ class VideosViewModel(
         }
     }
 
-    fun onSearchTriggered(query: String) {
-        if (query.isBlank()) return
+    fun onSearchTriggered(query: String) = intent {
+        if (query.isBlank()) return@intent
 
-        updateState {
-            it.copy(
+        reduce {
+            state.copy(
                 isSearchMode = true,
                 isLoading = true,
                 isEndReached = false,
@@ -114,18 +120,18 @@ class VideosViewModel(
         performSearch(query, 1)
     }
 
-    fun onClearSearch() {
+    fun onClearSearch() = intent {
         currentActiveQuery = ""
-        updateState {
-            it.copy(
+        reduce {
+            state.copy(
                 isSearchMode = false,
                 isEndReached = false,
                 currentPage = 1
             )
         }
 
-        if (currentState.popularVideos.isEmpty()) {
-            updateState { it.copy(isLoading = true) }
+        if (state.popularVideos.isEmpty()) {
+            reduce { state.copy(isLoading = true) }
             loadPopularVideos(1)
         }
     }
@@ -135,7 +141,7 @@ class VideosViewModel(
             try {
                 favoritesRepository.toggleFavorite(video)
             } catch (_: Exception) {
-                updateState { it.copy(userMessage = "Failed to toggle favorite") }
+                intent { postSideEffect(VideosSideEffect.ShowSnackbar("Failed to toggle favorite")) }
             }
         }
     }
@@ -144,17 +150,15 @@ class VideosViewModel(
         favoritesRepository.observeFavoriteVideos()
             .map { favorites -> favorites.map { it.id }.toSet() }
             .onEach { favoriteIds ->
-                updateState { state ->
-                    state.copy(
-                        popularVideos = state.popularVideos.map { it.copy(isFavorite = it.id in favoriteIds) },
-                        searchVideos = state.searchVideos.map { it.copy(isFavorite = it.id in favoriteIds) }
-                    )
+                intent {
+                    reduce {
+                        state.copy(
+                            popularVideos = state.popularVideos.map { it.copy(isFavorite = it.id in favoriteIds) },
+                            searchVideos = state.searchVideos.map { it.copy(isFavorite = it.id in favoriteIds) }
+                        )
+                    }
                 }
             }
             .launchIn(viewModelScope)
-    }
-
-    fun onMessageShown() {
-        updateState { it.copy(userMessage = null) }
     }
 }

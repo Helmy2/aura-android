@@ -1,41 +1,45 @@
 package com.example.aura.feature.settings
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aura.domain.model.ThemeMode
 import com.example.aura.domain.repository.SettingsRepository
-import com.example.aura.shared.core.util.StateViewModel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.orbitmvi.orbit.ContainerHost
+import org.orbitmvi.orbit.viewmodel.container
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
-) : StateViewModel<SettingsState>(SettingsState()) {
+) : ViewModel(), ContainerHost<SettingsState, SettingsSideEffect> {
+
+    override val container = container<SettingsState, SettingsSideEffect>(SettingsState())
 
     init {
         observeThemeMode()
     }
 
-    private fun observeThemeMode() {
+    private fun observeThemeMode() = intent {
         settingsRepository.observeThemeMode()
             .onEach { mode ->
-                updateState { it.copy(themeMode = mode, isLoading = false, error = null) }
+                reduce { state.copy(themeMode = mode, isLoading = false, error = null) }
             }
             .catch { e ->
-                updateState { it.copy(isLoading = false, error = e.message) }
+                reduce { state.copy(isLoading = false, error = e.message) }
             }
             .launchIn(viewModelScope)
     }
 
-    fun onThemeSelected(mode: ThemeMode) {
+    fun onThemeSelected(mode: ThemeMode) = intent {
         viewModelScope.launch {
             try {
-                updateState { it.copy(themeMode = mode) }
+                reduce { state.copy(themeMode = mode) }
 
                 settingsRepository.updateThemeMode(mode)
             } catch (e: Exception) {
-                updateState { it.copy(error = e.message ?: "Failed to update theme") }
+                postSideEffect(SettingsSideEffect.ShowSnackbar(e.message ?: "Failed to update theme"))
             }
         }
     }

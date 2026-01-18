@@ -13,7 +13,5 @@ data class VideosState(
     val currentPage: Int = 1,
     val isEndReached: Boolean = false,
 
-    val isSearchMode: Boolean = false,
-
-    val userMessage: String? = null
+    val isSearchMode: Boolean = false
 )

@@ -15,6 +15,5 @@ data class WallpaperListState(
 
     val isSearchMode: Boolean = false,
 
-    val favoriteIds: Set<Long> = emptySet(),
-    val userMessage: String? = null
+    val favoriteIds: Set<Long> = emptySet()
 )

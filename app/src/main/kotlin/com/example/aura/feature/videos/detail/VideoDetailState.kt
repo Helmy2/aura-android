@@ -6,6 +6,5 @@ data class VideoDetailState(
     val video: Video? = null,
     val isLoading: Boolean = false,
     val isDownloading: Boolean = false,
-    val error: String? = null,
-    val userMessage: String? = null
+    val error: String? = null
 )

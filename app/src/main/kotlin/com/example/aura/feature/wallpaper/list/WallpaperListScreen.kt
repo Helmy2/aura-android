@@ -15,19 +15,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.WallpaperGallery
 import org.koin.compose.viewmodel.koinViewModel
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 
 @Suppress("ParamsComparedByRef")
 @Composable
 fun WallpaperListScreen(
     viewModel: WallpaperListViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
     val listState = rememberLazyStaggeredGridState()
     val snackbarHostState = remember { SnackbarHostState() }
     val searchState = rememberTextFieldState()
@@ -45,16 +46,17 @@ fun WallpaperListScreen(
         }
     }
 
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) {
-            viewModel.onLoadNextPage()
+    viewModel.collectSideEffect { sideEffect ->
+        when (sideEffect) {
+            is WallpaperListSideEffect.ShowSnackbar -> {
+                snackbarHostState.showSnackbar(sideEffect.message)
+            }
         }
     }
 
-    LaunchedEffect(state.userMessage) {
-        state.userMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            viewModel.onMessageShown()
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            viewModel.onLoadNextPage()
         }
     }
 

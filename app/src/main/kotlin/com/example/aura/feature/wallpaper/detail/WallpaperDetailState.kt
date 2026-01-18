@@ -6,6 +6,5 @@ data class WallpaperDetailState(
     val wallpaper: Wallpaper? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val isDownloading: Boolean = false,
-    val userMessage: String? = null
+    val isDownloading: Boolean = false
 )
