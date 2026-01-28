@@ -1,5 +1,5 @@
 [versions]
-agp = "8.13.2"
+agp = "9.0.0"
 kotlin = "2.3.0"
 activityCompose = "1.12.2"
 koin = "4.1.1"
@@ -18,11 +18,12 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 composeBom = "2026.01.00"
 
-kotlinxSerializationJson = "1.9.0"
+kotlinxSerializationJson = "1.10.0"
 material3AdaptiveNavigationSuite = "1.4.0"
-media3 = "1.9.0"
+media3 = "1.9.1"
 
 aura = "0.0.1"
+screenshot = "0.0.1-alpha13"
 
 [libraries]
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
@@ -38,7 +39,7 @@ androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", vers
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
 androidx-material3-adaptive-navigation3 = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation3", version.ref = "material3AdaptiveNav3" }
 
-androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
+androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -69,6 +70,8 @@ media3-ui-compose = { group = "androidx.media3", name = "media3-ui-compose", ver
 
 aura-shared = { group = "com.helmy.aura", name = "shared-android", version.ref = "aura" }
 
+screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot"}
+
 [bundles]
 coil = ["coil-compose", "coil-compose-core", "coil-network-ktor3"]
 compose = [
@@ -90,9 +93,14 @@ media3 = [
     "media3-exoplayer-dash",
     "media3-ui-compose"
 ]
+koin = [
+    "koin-android",
+    "koin-core",
+    "koin-compose"
+]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot"}
