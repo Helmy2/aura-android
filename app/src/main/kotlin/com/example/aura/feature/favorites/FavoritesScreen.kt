@@ -14,30 +14,31 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.MediaContentGallery
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
+@Suppress("ParamsComparedByRef")
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        viewModel.effect.collect { effect ->
-            when (effect) {
-                is FavoritesEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
+    viewModel.CollectSideEffect {
+        when (it) {
+            is FavoritesEffect.ShowUserMessage -> {
+                snackbarHostState.showSnackbar(it.message)
             }
         }
     }
@@ -56,16 +57,10 @@ fun FavoritesScreen(
                 MediaContentGallery(
                     contentPadding = padding,
                     items = state.items,
-                    onItemClick = {
-                        viewModel.sendIntent(FavoritesIntent.OnItemClicked(it))
-                    },
-                    onFavoriteClick = {
-                        viewModel.sendIntent(FavoritesIntent.RemoveFormFavorite(it))
-                    },
+                    onItemClick = viewModel::onItemClicked,
+                    onFavoriteClick = viewModel::onRemoveFavorite,
                     isLoading = state.isLoading,
-                    emptyContent = {
-                        EmptyFavoritesView()
-                    }
+                    emptyContent = { EmptyFavoritesView() }
                 )
             }
         }
@@ -91,11 +86,13 @@ private fun EmptyFavoritesView(
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
             )
+
             Text(
                 text = message,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
+
             Text(
                 text = "Start adding items by tapping the heart icon",
                 style = MaterialTheme.typography.bodyMedium,

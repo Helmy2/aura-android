@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -52,29 +50,36 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import com.example.aura.domain.model.Video
 import com.example.aura.shared.component.AuraScaffold
-import com.example.aura.shared.core.extensions.ObserveEffect
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.dimens
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
-
 
 @Composable
 fun VideoDetailScreen(
     video: Video,
     viewModel: VideoDetailViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(video) {
-        viewModel.sendIntent(VideoDetailIntent.LoadVideo(video))
+        viewModel.loadVideo(video)
     }
 
-    ObserveEffect(viewModel.effect) { effect ->
+    viewModel.CollectSideEffect { effect ->
         when (effect) {
-            is VideoDetailEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
-            is VideoDetailEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+            is VideoDetailEffect.ShowMessage -> {
+                snackbarHostState.showSnackbar(effect.message)
+            }
+            is VideoDetailEffect.ShowError -> {
+                snackbarHostState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
+            }
         }
     }
 
@@ -86,10 +91,12 @@ fun VideoDetailScreen(
     }
 
     LaunchedEffect(state.video) {
-        state.video?.let { video ->
-            val mediaItem = MediaItem.fromUri(video.videoUrl)
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
+        state.video?.let { v ->
+            val mediaItem = MediaItem.fromUri(v.videoUrl)
+            if (exoPlayer.currentMediaItem?.mediaId != v.videoUrl) {
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+            }
         }
     }
 
@@ -98,87 +105,21 @@ fun VideoDetailScreen(
     }
 
     AuraScaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            if (state.video != null) {
-                val video = state.video!!
-                val aspectRatio =
-                    if (video.height > 0) video.width.toFloat() / video.height else 16f / 9f
-
-                var areControlsVisible by remember { mutableStateOf(true) }
-
-                LaunchedEffect(areControlsVisible, exoPlayer.isPlaying) {
-                    if (areControlsVisible && exoPlayer.isPlaying) {
-                        delay(1000)
-                        areControlsVisible = false
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(aspectRatio)
-                        .padding(MaterialTheme.dimens.md)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(Color.DarkGray)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { areControlsVisible = !areControlsVisible },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PlayerSurface(
-                        player = exoPlayer,
-                        modifier = Modifier
-                            .fillMaxSize()
-                    )
-
-                    AnimatedVisibility(
-                        visible = areControlsVisible || !exoPlayer.isPlaying,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.3f))
-                        )
-                    }
-
-                    val showButton = areControlsVisible || !exoPlayer.isPlaying
-
-                    AnimatedVisibility(
-                        visible = showButton,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        PlayPauseButton(
-                            player = exoPlayer,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                }
-            }
-
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
             Row(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
                     .fillMaxWidth()
-                    .systemBarsPadding()
+                    .padding(it)
                     .padding(MaterialTheme.dimens.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { viewModel.sendIntent(VideoDetailIntent.OnBackClicked) },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    onClick = viewModel::onBackClicked,
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.4f),
+                        CircleShape
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -186,25 +127,31 @@ fun VideoDetailScreen(
                         tint = Color.White
                     )
                 }
-                Spacer(
-                    modifier = Modifier.weight(1f)
-                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
                 IconButton(
-                    onClick = { viewModel.sendIntent(VideoDetailIntent.ToggleFavorite) },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    onClick = viewModel::onToggleFavorite,
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.4f),
+                        CircleShape
+                    )
                 ) {
                     val isFavorite = state.video?.isFavorite == true
                     Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        imageVector = if (isFavorite) Icons.Default.Favorite
+                        else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
                         tint = if (isFavorite) Color.Red else Color.White
                     )
                 }
+
                 IconButton(
-                    onClick = { viewModel.sendIntent(VideoDetailIntent.DownloadVideo) },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    onClick = viewModel::onDownloadClicked,
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.4f),
+                        CircleShape
+                    )
                 ) {
                     if (state.isDownloading) {
                         CircularProgressIndicator(
@@ -221,12 +168,73 @@ fun VideoDetailScreen(
                     }
                 }
             }
+        }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            if (state.video != null) {
+                val currentVideo = state.video!!
+                val aspectRatio = if (currentVideo.height > 0)
+                    currentVideo.width.toFloat() / currentVideo.height else 16f / 9f
 
-            if (state.isLoading) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                var areControlsVisible by remember { mutableStateOf(true) }
+
+                LaunchedEffect(areControlsVisible, exoPlayer.isPlaying) {
+                    if (areControlsVisible && exoPlayer.isPlaying) {
+                        delay(3000)
+                        areControlsVisible = false
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(aspectRatio)
+                        .padding(MaterialTheme.dimens.md)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(Color.DarkGray)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { areControlsVisible = !areControlsVisible },
+                    contentAlignment = Alignment.Center
+                ) {
+                    PlayerSurface(
+                        player = exoPlayer,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    AnimatedVisibility(
+                        visible = areControlsVisible || !exoPlayer.isPlaying,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.3f))
+                        ) {
+                            val showButton = areControlsVisible || !exoPlayer.isPlaying
+
+                            AnimatedVisibility(
+                                visible = showButton,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
+                                modifier = Modifier.align(Alignment.Center)
+                            ) {
+                                PlayPauseButton(player = exoPlayer)
+                            }
+
+                        }
+                    }
+                }
+            } else if (state.isLoading) {
+                CircularProgressIndicator(color = Color.White)
             }
         }
     }
@@ -237,7 +245,6 @@ fun VideoDetailScreen(
 fun PlayPauseButton(player: Player, modifier: Modifier = Modifier) {
     val state = rememberPlayPauseButtonState(player)
     val icon = if (state.showPlay) Icons.Default.PlayArrow else Icons.Default.Pause
-
     val backgroundColor = Color.Black.copy(alpha = 0.5f)
 
     IconButton(

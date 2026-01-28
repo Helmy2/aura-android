@@ -17,7 +17,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -27,19 +27,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.shared.component.AuraImage
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.FavoriteButton
 import com.example.aura.shared.component.SystemBarStyle
-import com.example.aura.shared.core.extensions.ObserveEffect
 import com.example.aura.shared.core.extensions.toColor
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
-@Suppress("ParamsComparedByRef")
 @Composable
 fun WallpaperScreen(
     wallpaper: Wallpaper,
@@ -48,18 +47,22 @@ fun WallpaperScreen(
     SystemBarStyle(isStatusBarOnDark = true, restoreOnDispose = true)
 
     val snackbarState = remember { SnackbarHostState() }
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    DisposableEffect(Unit) {
-        viewModel.sendIntent(WallpaperDetailIntent.LoadWallpaper(wallpaper))
-        onDispose {
+    val state by viewModel.collectAsState()
 
-        }
+    LaunchedEffect(wallpaper) {
+        viewModel.loadWallpaper(wallpaper)
     }
 
-    ObserveEffect(flow = viewModel.effect) {
-        when (it) {
+    viewModel.CollectSideEffect { effect ->
+        when (effect) {
+            is WallpaperDetailEffect.ShowMessage -> {
+                snackbarState.showSnackbar(effect.message)
+            }
             is WallpaperDetailEffect.ShowError -> {
-                snackbarState.showSnackbar(it.message)
+                snackbarState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
             }
         }
     }
@@ -71,9 +74,7 @@ fun WallpaperScreen(
                 snackbar = {
                     Box(
                         modifier = Modifier
-                            .clip(
-                                MaterialTheme.shapes.medium
-                            )
+                            .clip(MaterialTheme.shapes.medium)
                             .background(
                                 color = state.wallpaper?.averageColor?.toColor()
                                     ?: Color.Transparent
@@ -82,10 +83,10 @@ fun WallpaperScreen(
                         Text(
                             it.visuals.message,
                             color = Color.White,
-                            modifier = Modifier.padding(MaterialTheme.dimens.md),
+                            modifier = Modifier.padding(MaterialTheme.dimens.md)
                         )
                     }
-                },
+                }
             )
         },
         topBar = {
@@ -101,45 +102,40 @@ fun WallpaperScreen(
                             )
                         )
                     )
-            )
-            AuraTransparentTopBar(
-                contentColor = Color.White,
-                title = "Details",
-                onBackClick = {
-                    viewModel.sendIntent(WallpaperDetailIntent.OnBackClicked)
-                },
-                actions = {
-                    state.wallpaper?.let { wallpaper ->
-                        FavoriteButton(
-                            isFavorite = wallpaper.isFavorite,
-                            onClick = {
-                                viewModel.sendIntent(WallpaperDetailIntent.ToggleFavorite(wallpaper))
-                            },
-                            tint = Color.White
-                        )
+            ) {
+                AuraTransparentTopBar(
+                    contentColor = Color.White,
+                    title = "Details",
+                    onBackClick = viewModel::onBackClicked,
+                    actions = {
+                        state.wallpaper?.let { currentWallpaper ->
+                            FavoriteButton(
+                                isFavorite = currentWallpaper.isFavorite,
+                                onClick = { viewModel.onToggleFavorite(currentWallpaper) },
+                                tint = Color.White
+                            )
 
-                        IconButton(
-                            onClick = {
-                                viewModel.sendIntent(WallpaperDetailIntent.DownloadWallpaper)
-                            },
-                            enabled = !state.isDownloading
-                        ) {
-                            if (state.isDownloading) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Download,
-                                    contentDescription = "Download",
-                                    tint = Color.White
-                                )
+                            IconButton(
+                                onClick = viewModel::onDownloadClicked,
+                                enabled = !state.isDownloading
+                            ) {
+                                if (state.isDownloading) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = "Download",
+                                        tint = Color.White
+                                    )
+                                }
                             }
                         }
                     }
-                },
-            )
+                )
+            }
         }
     ) { padding ->
         Box(
@@ -151,33 +147,30 @@ fun WallpaperScreen(
                 imageUrl = state.wallpaper?.imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.align(
-                    Alignment.Center
-                )
+                modifier = Modifier.align(Alignment.Center)
             )
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(
-                        MaterialTheme.dimens.bottomOverlayHeight
-                    )
+                    .height(MaterialTheme.dimens.bottomOverlayHeight)
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Transparent, Color.Black.copy(alpha = 0.8f)
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f)
                             )
                         )
                     )
             )
 
             AnimatedVisibility(
-                state.wallpaper != null, modifier =
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(MaterialTheme.dimens.screenPadding)
-                        .padding(bottom = padding.calculateBottomPadding())
+                state.wallpaper != null,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(MaterialTheme.dimens.screenPadding)
+                    .padding(bottom = padding.calculateBottomPadding())
             ) {
                 Text(
                     text = state.wallpaper!!.photographer,

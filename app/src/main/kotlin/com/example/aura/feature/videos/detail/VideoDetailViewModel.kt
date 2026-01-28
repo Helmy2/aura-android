@@ -1,86 +1,58 @@
 package com.example.aura.feature.videos.detail
 
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.Video
 import com.example.aura.domain.repository.FavoritesRepository
-import com.example.aura.shared.core.mvi.MviViewModel
+import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.container
+import com.example.aura.shared.core.mvi.intent
 import com.example.aura.shared.core.util.VideoDownloader
 import com.example.aura.shared.navigation.AppNavigator
-import kotlinx.coroutines.launch
 
 class VideoDetailViewModel(
     private val favoritesRepository: FavoritesRepository,
     private val navigator: AppNavigator,
     private val videoDownloader: VideoDownloader
-) : MviViewModel<VideoDetailState, VideoDetailIntent, VideoDetailEffect>(VideoDetailState()) {
+) : ContainerHost<VideoDetailState, VideoDetailEffect>, ViewModel() {
 
-    override fun reduce(
-        currentState: VideoDetailState,
-        intent: VideoDetailIntent
-    ): Pair<VideoDetailState, VideoDetailEffect?> {
-        return when (intent) {
-            is VideoDetailIntent.LoadVideo -> {
-                currentState.copy(video = intent.video).only()
-            }
+    override val container = container<VideoDetailState, VideoDetailEffect>(VideoDetailState())
 
-            is VideoDetailIntent.VideoLoaded -> {
-                currentState.copy(video = intent.video, isLoading = false).only()
-            }
+    fun loadVideo(video: Video) = intent {
+        reduce { copy(video = video, isLoading = false) }
+    }
 
-            is VideoDetailIntent.LoadError -> {
-                currentState.copy(isLoading = false, error = intent.message)
-                    .with(VideoDetailEffect.ShowError(intent.message))
-            }
+    fun onBackClicked() {
+        navigator.back()
+    }
 
-            is VideoDetailIntent.OnBackClicked -> {
-                navigator.back()
-                currentState.only()
-            }
+    fun onDownloadClicked() = intent {
+        val currentVideo = state.video ?: return@intent
 
-            is VideoDetailIntent.DownloadVideo -> {
-                if (currentState.video != null) {
-                    downloadVideo(currentState.video)
-                    currentState.copy(isDownloading = true).only()
-                } else {
-                    currentState.with(VideoDetailEffect.ShowError("Video not found"))
-                }
-            }
+        reduce { copy(isDownloading = true) }
 
-            is VideoDetailIntent.DownloadFinished -> {
-                val message = if (intent.success) "Download started" else "Download failed"
-                currentState.copy(isDownloading = false)
-                    .with(VideoDetailEffect.ShowMessage(message))
-            }
-
-            is VideoDetailIntent.ToggleFavorite -> {
-                val video = currentState.video
-                if (video != null) {
-                    viewModelScope.launch {
-                        try {
-                            favoritesRepository.toggleFavorite(video)
-                        } catch (e: Exception) {
-                            sendIntent(VideoDetailIntent.LoadError("Failed to update favorite"))
-                        }
-                    }
-                }
-                currentState.copy(
-                    video = video?.copy(isFavorite = !video.isFavorite)
-                ).only()
-            }
-
-            is VideoDetailIntent.FavoriteStatusUpdated -> {
-                val updatedVideo = currentState.video?.copy(isFavorite = intent.isFavorite)
-                currentState.copy(video = updatedVideo).only()
-            }
+        try {
+            videoDownloader.downloadVideo(currentVideo.videoUrl, "aura_video_${currentVideo.id}")
+            reduce { copy(isDownloading = false) }
+            postSideEffect(VideoDetailEffect.ShowMessage("Download started"))
+        } catch (_: Exception) {
+            reduce { copy(isDownloading = false) }
+            postSideEffect(VideoDetailEffect.ShowError("Download failed"))
         }
     }
 
-    private fun downloadVideo(video: Video) {
+    fun onToggleFavorite() = intent {
+        val currentVideo = state.video ?: return@intent
+        val newStatus = !currentVideo.isFavorite
+
+        reduce { copy(video = currentVideo.copy(isFavorite = newStatus)) }
+
         try {
-            videoDownloader.downloadVideo(video.videoUrl, "aura_video_${video.id}")
-            sendIntent(VideoDetailIntent.DownloadFinished(true))
-        } catch (e: Exception) {
-            sendIntent(VideoDetailIntent.DownloadFinished(false))
+            favoritesRepository.toggleFavorite(currentVideo)
+        } catch (_: Exception) {
+            reduce {
+                copy(video = currentVideo.copy(isFavorite = !newStatus))
+            }
+            postSideEffect(VideoDetailEffect.ShowError("Failed to update favorite"))
         }
     }
 }

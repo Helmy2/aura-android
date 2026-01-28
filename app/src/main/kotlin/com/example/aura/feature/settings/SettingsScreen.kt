@@ -13,15 +13,19 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.aura.domain.model.ThemeMode
 import com.example.aura.shared.component.AuraCard
 import com.example.aura.shared.component.AuraTransparentTopBar
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -29,14 +33,28 @@ import org.koin.compose.viewmodel.koinViewModel
 fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    viewModel.CollectSideEffect { effect ->
+        when (effect) {
+            is SettingsEffect.ShowError -> {
+                snackbarHostState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
+            }
+            is SettingsEffect.ShowMessage -> {
+                snackbarHostState.showSnackbar(effect.message)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
-            AuraTransparentTopBar(
-                title = "Settings"
-            )
-        }
+            AuraTransparentTopBar(title = "Settings")
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         if (state.isLoading) {
             Box(
@@ -50,7 +68,7 @@ fun SettingsScreen(
         } else {
             SettingsContent(
                 state = state,
-                onIntent = viewModel::sendIntent,
+                onThemeSelected = viewModel::onThemeSelected,
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -60,7 +78,7 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
+    onThemeSelected: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -68,7 +86,6 @@ private fun SettingsContent(
         contentPadding = PaddingValues(MaterialTheme.dimens.md),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.dimens.sm)
     ) {
-        // Theme Section
         item {
             Text(
                 text = "Appearance",
@@ -81,9 +98,7 @@ private fun SettingsContent(
         item {
             ThemeSelector(
                 selectedTheme = state.themeMode,
-                onThemeSelected = { mode ->
-                    onIntent(SettingsIntent.UpdateThemeMode(mode))
-                }
+                onThemeSelected = onThemeSelected
             )
         }
     }

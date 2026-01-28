@@ -3,7 +3,10 @@ package com.example.aura.feature.videos.list
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,44 +15,66 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.VideoGallery
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun VideosScreen(
     viewModel: VideosViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
     val listState = rememberLazyStaggeredGridState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val searchState = rememberTextFieldState()
 
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
             val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            totalItems > 0 && lastVisibleIndex >= (totalItems - 4) && !state.isLoading && !state.isPaginationLoading && !state.isEndReached
+            totalItems > 0 &&
+                    lastVisibleIndex >= (totalItems - 4) &&
+                    !state.isLoading &&
+                    !state.isPaginationLoading &&
+                    !state.isEndReached
         }
     }
 
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
-            viewModel.sendIntent(VideosIntent.LoadNextPage)
+            viewModel.onLoadNextPage()
+        }
+    }
+
+    viewModel.CollectSideEffect { effect ->
+        when (effect) {
+            is VideosEffect.ShowError -> {
+                snackbarHostState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
+            }
+            is VideosEffect.ShowMessage -> {
+                snackbarHostState.showSnackbar(effect.message)
+            }
         }
     }
 
     AuraScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AuraTransparentTopBar(
-                title = "Videos", onBackClick = {
-                    viewModel.sendIntent(VideosIntent.OnNavigateBack)
-                })
-        },
+                title = "Videos",
+                onBackClick = viewModel::onBackClicked
+            )
+        }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            if (state.error != null) {
+            if (state.error != null && state.popularVideos.isEmpty()) {
                 Text(
                     text = "Error: ${state.error}",
                     color = MaterialTheme.colorScheme.error,
@@ -59,32 +84,21 @@ fun VideosScreen(
                 VideoGallery(
                     contentPadding = padding,
                     videos = if (state.isSearchMode) state.searchVideos else state.popularVideos,
-                    onVideoClick = { viewModel.sendIntent(VideosIntent.OnVideoClicked(it)) },
-                    onFavoriteClick = { viewModel.sendIntent(VideosIntent.OnFavoriteClicked(it)) },
+                    onVideoClick = viewModel::onVideoClicked,
+                    onFavoriteClick = viewModel::onFavoriteClicked,
                     isLoading = state.isLoading,
                     isPaginationLoading = state.isPaginationLoading,
                     searchAppBar = {
                         AuraSearchBar(
-                            query = state.searchQuery,
-                            onQueryChange = {
-                                viewModel.sendIntent(
-                                    VideosIntent.OnSearchQueryChanged(
-                                        it
-                                    )
-                                )
-                            },
-                            onSearch = { viewModel.sendIntent(VideosIntent.OnSearchTriggered) },
-                            onClearSearch = { viewModel.sendIntent(VideosIntent.OnClearSearch) },
-                            isSearchActive = state.isSearchMode,
+                            state = searchState,
+                            onSearch = viewModel::onSearchTriggered,
+                            onClearSearch = viewModel::onClearSearch
                         )
                     },
                     emptyContent = {
-                        if (state.isSearchMode) {
-                            Text(text = "No results found")
-                        } else {
-                            Text(text = "No videos found")
-                        }
-                    })
+                        Text(text = "No results found")
+                    }
+                )
             }
         }
     }

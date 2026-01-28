@@ -1,76 +1,56 @@
 package com.example.aura.feature.settings
 
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.ThemeMode
 import com.example.aura.domain.repository.SettingsRepository
-import com.example.aura.shared.core.mvi.MviViewModel
-import kotlinx.coroutines.flow.launchIn
+import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.container
+import com.example.aura.shared.core.mvi.intent
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 
 class SettingsViewModel(
-    private val settingsRepository: SettingsRepository,
-) : MviViewModel<SettingsState, SettingsIntent, Nothing>(
-    initialState = SettingsState()
-) {
+    private val settingsRepository: SettingsRepository
+) : ContainerHost<SettingsState, SettingsEffect>, ViewModel() {
+
+    override val container = container<SettingsState, SettingsEffect>(SettingsState())
 
     init {
-        sendIntent(SettingsIntent.LoadSettings)
         observeThemeMode()
     }
 
-    override fun reduce(
-        currentState: SettingsState, intent: SettingsIntent
-    ): Pair<SettingsState, Nothing?> {
-        return when (intent) {
-            is SettingsIntent.LoadSettings -> {
-                loadThemeMode()
-                currentState.copy(isLoading = true, error = null)
+    private fun observeThemeMode() = intent {
+        settingsRepository.observeThemeMode()
+            .onEach { mode ->
+                reduce { copy(themeMode = mode, isLoading = false, error = null) }
             }
-
-            is SettingsIntent.OnThemeModeLoaded -> {
-                currentState.copy(
-                    themeMode = intent.mode, isLoading = false, error = null
+            .catch { e ->
+                reduce { copy(isLoading = false, error = e.message) }
+                postSideEffect(
+                    SettingsEffect.ShowError(e.message ?: "Failed to load theme settings")
                 )
             }
-
-            is SettingsIntent.UpdateThemeMode -> {
-                updateThemeMode(intent.mode)
-                currentState
-            }
-
-            is SettingsIntent.OnError -> {
-                currentState.copy(
-                    isLoading = false, error = intent.message
-                )
-            }
-        }.only()
+            .collect()
     }
 
-    private fun loadThemeMode() {
-        viewModelScope.launch {
-            try {
-                val mode = settingsRepository.getThemeMode()
-                sendIntent(SettingsIntent.OnThemeModeLoaded(mode))
-            } catch (e: Exception) {
-                sendIntent(SettingsIntent.OnError(e.message.orEmpty()))
-            }
+    fun onThemeSelected(mode: ThemeMode) = intent {
+        try {
+            reduce { copy(themeMode = mode) }
+
+            settingsRepository.updateThemeMode(mode)
+
+            postSideEffect(
+                SettingsEffect.ShowMessage("Theme updated successfully")
+            )
+        } catch (e: Exception) {
+            val currentMode = settingsRepository.observeThemeMode().first()
+            reduce { copy(themeMode = currentMode, error = e.message) }
+
+            postSideEffect(
+                SettingsEffect.ShowError(e.message ?: "Failed to update theme")
+            )
         }
-    }
-
-    private fun updateThemeMode(mode: ThemeMode) {
-        viewModelScope.launch {
-            try {
-                settingsRepository.updateThemeMode(mode)
-            } catch (e: Exception) {
-                sendIntent(SettingsIntent.OnError(e.message.orEmpty()))
-            }
-        }
-    }
-
-    private fun observeThemeMode() {
-        settingsRepository.observeThemeMode().onEach { mode ->
-            sendIntent(SettingsIntent.OnThemeModeLoaded(mode))
-        }.launchIn(viewModelScope)
     }
 }
