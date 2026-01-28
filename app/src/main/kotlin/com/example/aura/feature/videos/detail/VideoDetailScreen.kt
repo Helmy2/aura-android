@@ -52,12 +52,11 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import com.example.aura.domain.model.Video
 import com.example.aura.shared.component.AuraScaffold
-import com.example.aura.shared.core.extensions.ObserveEffect
 import com.example.aura.shared.theme.dimens
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
 
-
+@Suppress("ParamsComparedByRef")
 @Composable
 fun VideoDetailScreen(
     video: Video,
@@ -68,13 +67,13 @@ fun VideoDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(video) {
-        viewModel.sendIntent(VideoDetailIntent.LoadVideo(video))
+        viewModel.loadVideo(video)
     }
 
-    ObserveEffect(viewModel.effect) { effect ->
-        when (effect) {
-            is VideoDetailEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
-            is VideoDetailEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+    LaunchedEffect(state.userMessage) {
+        state.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.onMessageShown()
         }
     }
 
@@ -86,10 +85,12 @@ fun VideoDetailScreen(
     }
 
     LaunchedEffect(state.video) {
-        state.video?.let { video ->
-            val mediaItem = MediaItem.fromUri(video.videoUrl)
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
+        state.video?.let { v ->
+            val mediaItem = MediaItem.fromUri(v.videoUrl)
+            if (exoPlayer.currentMediaItem?.mediaId != v.videoUrl) {
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+            }
         }
     }
 
@@ -107,15 +108,15 @@ fun VideoDetailScreen(
             contentAlignment = Alignment.Center
         ) {
             if (state.video != null) {
-                val video = state.video!!
-                val aspectRatio =
-                    if (video.height > 0) video.width.toFloat() / video.height else 16f / 9f
+                val currentVideo = state.video!!
+                val aspectRatio = if (currentVideo.height > 0)
+                    currentVideo.width.toFloat() / currentVideo.height else 16f / 9f
 
                 var areControlsVisible by remember { mutableStateOf(true) }
 
                 LaunchedEffect(areControlsVisible, exoPlayer.isPlaying) {
                     if (areControlsVisible && exoPlayer.isPlaying) {
-                        delay(1000)
+                        delay(3000)
                         areControlsVisible = false
                     }
                 }
@@ -135,8 +136,7 @@ fun VideoDetailScreen(
                 ) {
                     PlayerSurface(
                         player = exoPlayer,
-                        modifier = Modifier
-                            .fillMaxSize()
+                        modifier = Modifier.fillMaxSize()
                     )
 
                     AnimatedVisibility(
@@ -149,84 +149,74 @@ fun VideoDetailScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color.Black.copy(alpha = 0.3f))
-                        )
-                    }
+                        ) {
+                            val showButton = areControlsVisible || !exoPlayer.isPlaying
+                            AnimatedVisibility(
+                                visible = showButton,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
+                                modifier = Modifier.align(Alignment.Center)
+                            ) {
+                                PlayPauseButton(player = exoPlayer)
+                            }
 
-                    val showButton = areControlsVisible || !exoPlayer.isPlaying
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .fillMaxWidth()
+                                    .systemBarsPadding()
+                                    .padding(MaterialTheme.dimens.md),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(
+                                    onClick = viewModel::onBackClicked,
+                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color.White
+                                    )
+                                }
 
-                    AnimatedVisibility(
-                        visible = showButton,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        PlayPauseButton(
-                            player = exoPlayer,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                }
-            }
+                                Spacer(modifier = Modifier.weight(1f))
 
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .fillMaxWidth()
-                    .systemBarsPadding()
-                    .padding(MaterialTheme.dimens.md),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { viewModel.sendIntent(VideoDetailIntent.OnBackClicked) },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
-                }
-                Spacer(
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = { viewModel.sendIntent(VideoDetailIntent.ToggleFavorite) },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                ) {
-                    val isFavorite = state.video?.isFavorite == true
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) Color.Red else Color.White
-                    )
-                }
-                IconButton(
-                    onClick = { viewModel.sendIntent(VideoDetailIntent.DownloadVideo) },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                ) {
-                    if (state.isDownloading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.padding(MaterialTheme.dimens.sm),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Download",
-                            tint = Color.White
-                        )
+                                IconButton(
+                                    onClick = viewModel::onToggleFavorite,
+                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                ) {
+                                    val isFavorite = state.video?.isFavorite == true
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Favorite",
+                                        tint = if (isFavorite) Color.Red else Color.White
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = viewModel::onDownloadClicked,
+                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                ) {
+                                    if (state.isDownloading) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            modifier = Modifier.padding(MaterialTheme.dimens.sm),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Download,
+                                            contentDescription = "Download",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-
-            if (state.isLoading) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+            } else if (state.isLoading) {
+                CircularProgressIndicator(color = Color.White)
             }
         }
     }
@@ -237,7 +227,6 @@ fun VideoDetailScreen(
 fun PlayPauseButton(player: Player, modifier: Modifier = Modifier) {
     val state = rememberPlayPauseButtonState(player)
     val icon = if (state.showPlay) Icons.Default.PlayArrow else Icons.Default.Pause
-
     val backgroundColor = Color.Black.copy(alpha = 0.5f)
 
     IconButton(
