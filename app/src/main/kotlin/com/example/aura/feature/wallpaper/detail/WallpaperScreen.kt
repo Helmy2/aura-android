@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.shared.component.AuraImage
 import com.example.aura.shared.component.AuraScaffold
@@ -35,10 +34,11 @@ import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.FavoriteButton
 import com.example.aura.shared.component.SystemBarStyle
 import com.example.aura.shared.core.extensions.toColor
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
-@Suppress("ParamsComparedByRef")
 @Composable
 fun WallpaperScreen(
     wallpaper: Wallpaper,
@@ -47,16 +47,23 @@ fun WallpaperScreen(
     SystemBarStyle(isStatusBarOnDark = true, restoreOnDispose = true)
 
     val snackbarState = remember { SnackbarHostState() }
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
 
     LaunchedEffect(wallpaper) {
         viewModel.loadWallpaper(wallpaper)
     }
 
-    LaunchedEffect(state.userMessage) {
-        state.userMessage?.let { message ->
-            snackbarState.showSnackbar(message)
-            viewModel.onMessageShown()
+    viewModel.CollectSideEffect { effect ->
+        when (effect) {
+            is WallpaperDetailEffect.ShowMessage -> {
+                snackbarState.showSnackbar(effect.message)
+            }
+            is WallpaperDetailEffect.ShowError -> {
+                snackbarState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
+            }
         }
     }
 
@@ -76,7 +83,7 @@ fun WallpaperScreen(
                         Text(
                             it.visuals.message,
                             color = Color.White,
-                            modifier = Modifier.padding(MaterialTheme.dimens.md),
+                            modifier = Modifier.padding(MaterialTheme.dimens.md)
                         )
                     }
                 }
@@ -151,7 +158,8 @@ fun WallpaperScreen(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.Transparent, Color.Black.copy(alpha = 0.8f)
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f)
                             )
                         )
                     )

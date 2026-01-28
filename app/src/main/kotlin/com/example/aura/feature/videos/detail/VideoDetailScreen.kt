@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -52,17 +50,18 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import com.example.aura.domain.model.Video
 import com.example.aura.shared.component.AuraScaffold
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.dimens
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
 
-@Suppress("ParamsComparedByRef")
 @Composable
 fun VideoDetailScreen(
     video: Video,
     viewModel: VideoDetailViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -70,10 +69,17 @@ fun VideoDetailScreen(
         viewModel.loadVideo(video)
     }
 
-    LaunchedEffect(state.userMessage) {
-        state.userMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            viewModel.onMessageShown()
+    viewModel.CollectSideEffect { effect ->
+        when (effect) {
+            is VideoDetailEffect.ShowMessage -> {
+                snackbarHostState.showSnackbar(effect.message)
+            }
+            is VideoDetailEffect.ShowError -> {
+                snackbarHostState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
+            }
         }
     }
 
@@ -99,7 +105,70 @@ fun VideoDetailScreen(
     }
 
     AuraScaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(it)
+                    .padding(MaterialTheme.dimens.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = viewModel::onBackClicked,
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.4f),
+                        CircleShape
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(
+                    onClick = viewModel::onToggleFavorite,
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.4f),
+                        CircleShape
+                    )
+                ) {
+                    val isFavorite = state.video?.isFavorite == true
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite
+                        else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color.Red else Color.White
+                    )
+                }
+
+                IconButton(
+                    onClick = viewModel::onDownloadClicked,
+                    modifier = Modifier.background(
+                        Color.Black.copy(alpha = 0.4f),
+                        CircleShape
+                    )
+                ) {
+                    if (state.isDownloading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.padding(MaterialTheme.dimens.sm),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+        }
     ) {
         Box(
             modifier = Modifier
@@ -132,7 +201,7 @@ fun VideoDetailScreen(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) { areControlsVisible = !areControlsVisible },
-                    contentAlignment = Alignment.Center,
+                    contentAlignment = Alignment.Center
                 ) {
                     PlayerSurface(
                         player = exoPlayer,
@@ -151,6 +220,7 @@ fun VideoDetailScreen(
                                 .background(Color.Black.copy(alpha = 0.3f))
                         ) {
                             val showButton = areControlsVisible || !exoPlayer.isPlaying
+
                             AnimatedVisibility(
                                 visible = showButton,
                                 enter = fadeIn(),
@@ -160,58 +230,6 @@ fun VideoDetailScreen(
                                 PlayPauseButton(player = exoPlayer)
                             }
 
-                            Row(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .fillMaxWidth()
-                                    .systemBarsPadding()
-                                    .padding(MaterialTheme.dimens.md),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(
-                                    onClick = viewModel::onBackClicked,
-                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
-                                        tint = Color.White
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                IconButton(
-                                    onClick = viewModel::onToggleFavorite,
-                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                                ) {
-                                    val isFavorite = state.video?.isFavorite == true
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "Favorite",
-                                        tint = if (isFavorite) Color.Red else Color.White
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = viewModel::onDownloadClicked,
-                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                                ) {
-                                    if (state.isDownloading) {
-                                        CircularProgressIndicator(
-                                            color = Color.White,
-                                            modifier = Modifier.padding(MaterialTheme.dimens.sm),
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Download,
-                                            contentDescription = "Download",
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }

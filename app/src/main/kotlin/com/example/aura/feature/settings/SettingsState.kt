@@ -7,3 +7,8 @@ data class SettingsState(
     val isLoading: Boolean = true,
     val error: String? = null
 )
+
+sealed interface SettingsEffect {
+    data class ShowError(val message: String) : SettingsEffect
+    data class ShowMessage(val message: String) : SettingsEffect
+}

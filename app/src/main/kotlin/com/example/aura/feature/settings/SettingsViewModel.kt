@@ -1,42 +1,56 @@
 package com.example.aura.feature.settings
 
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.ThemeMode
 import com.example.aura.domain.repository.SettingsRepository
-import com.example.aura.shared.core.util.StateViewModel
+import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.container
+import com.example.aura.shared.core.mvi.intent
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 
 class SettingsViewModel(
-    private val settingsRepository: SettingsRepository,
-) : StateViewModel<SettingsState>(SettingsState()) {
+    private val settingsRepository: SettingsRepository
+) : ContainerHost<SettingsState, SettingsEffect>, ViewModel() {
+
+    override val container = container<SettingsState, SettingsEffect>(SettingsState())
 
     init {
         observeThemeMode()
     }
 
-    private fun observeThemeMode() {
+    private fun observeThemeMode() = intent {
         settingsRepository.observeThemeMode()
             .onEach { mode ->
-                updateState { it.copy(themeMode = mode, isLoading = false, error = null) }
+                reduce { copy(themeMode = mode, isLoading = false, error = null) }
             }
             .catch { e ->
-                updateState { it.copy(isLoading = false, error = e.message) }
+                reduce { copy(isLoading = false, error = e.message) }
+                postSideEffect(
+                    SettingsEffect.ShowError(e.message ?: "Failed to load theme settings")
+                )
             }
-            .launchIn(viewModelScope)
+            .collect()
     }
 
-    fun onThemeSelected(mode: ThemeMode) {
-        viewModelScope.launch {
-            try {
-                updateState { it.copy(themeMode = mode) }
+    fun onThemeSelected(mode: ThemeMode) = intent {
+        try {
+            reduce { copy(themeMode = mode) }
 
-                settingsRepository.updateThemeMode(mode)
-            } catch (e: Exception) {
-                updateState { it.copy(error = e.message ?: "Failed to update theme") }
-            }
+            settingsRepository.updateThemeMode(mode)
+
+            postSideEffect(
+                SettingsEffect.ShowMessage("Theme updated successfully")
+            )
+        } catch (e: Exception) {
+            val currentMode = settingsRepository.observeThemeMode().first()
+            reduce { copy(themeMode = currentMode, error = e.message) }
+
+            postSideEffect(
+                SettingsEffect.ShowError(e.message ?: "Failed to update theme")
+            )
         }
     }
 }
