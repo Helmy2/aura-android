@@ -1,23 +1,26 @@
 package com.example.aura.feature.wallpaper.detail
 
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.domain.repository.FavoritesRepository
-import com.example.aura.shared.core.util.StateViewModel
+import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.container
+import com.example.aura.shared.core.mvi.intent
 import com.example.aura.shared.core.util.ImageDownloader
 import com.example.aura.shared.navigation.AppNavigator
-import kotlinx.coroutines.launch
 
 class WallpaperViewModel(
     private val favoritesRepository: FavoritesRepository,
     private val imageDownloader: ImageDownloader,
     private val navigator: AppNavigator
-) : StateViewModel<WallpaperDetailState>(WallpaperDetailState()) {
+) : ContainerHost<WallpaperDetailState, WallpaperDetailEffect>, ViewModel() {
 
-    fun loadWallpaper(wallpaper: Wallpaper) {
-        if (currentState.wallpaper?.id != wallpaper.id) {
-            updateState {
-                it.copy(
+    override val container = container<WallpaperDetailState, WallpaperDetailEffect>(WallpaperDetailState())
+
+    fun loadWallpaper(wallpaper: Wallpaper) = intent {
+        if (state.wallpaper?.id != wallpaper.id) {
+            reduce {
+                copy(
                     wallpaper = wallpaper,
                     isLoading = false,
                     error = null
@@ -30,45 +33,37 @@ class WallpaperViewModel(
         navigator.back()
     }
 
-    fun onDownloadClicked() {
-        val wallpaper = currentState.wallpaper ?: return
+    fun onDownloadClicked() = intent {
+        val wallpaper = state.wallpaper ?: return@intent
 
-        updateState { it.copy(isDownloading = true) }
+        reduce { copy(isDownloading = true) }
 
-        viewModelScope.launch {
-            val fileName = "aura_${wallpaper.id}"
-            val success = imageDownloader.downloadImage(wallpaper.imageUrl, fileName)
+        val fileName = "aura_${wallpaper.id}"
+        val success = imageDownloader.downloadImage(wallpaper.imageUrl, fileName)
 
-            updateState {
-                it.copy(
-                    isDownloading = false,
-                    userMessage = if (success) "Download finished" else "Download failed"
-                )
-            }
+        reduce { copy(isDownloading = false) }
+
+        if (success) {
+            postSideEffect(WallpaperDetailEffect.ShowMessage("Download finished"))
+        } else {
+            postSideEffect(WallpaperDetailEffect.ShowError("Download failed"))
         }
     }
 
-    fun onToggleFavorite(wallpaper: Wallpaper) {
+    fun onToggleFavorite(wallpaper: Wallpaper) = intent {
         val newStatus = !wallpaper.isFavorite
-        updateState { state ->
-            state.copy(wallpaper = wallpaper.copy(isFavorite = newStatus))
+
+        reduce {
+            copy(wallpaper = wallpaper.copy(isFavorite = newStatus))
         }
 
-        viewModelScope.launch {
-            try {
-                favoritesRepository.toggleFavorite(wallpaper)
-            } catch (_: Exception) {
-                updateState { state ->
-                    state.copy(
-                        wallpaper = wallpaper.copy(isFavorite = !newStatus),
-                        userMessage = "Failed to update favorite"
-                    )
-                }
+        try {
+            favoritesRepository.toggleFavorite(wallpaper)
+        } catch (_: Exception) {
+            reduce {
+                copy(wallpaper = wallpaper.copy(isFavorite = !newStatus))
             }
+            postSideEffect(WallpaperDetailEffect.ShowError("Failed to update favorite"))
         }
-    }
-
-    fun onMessageShown() {
-        updateState { it.copy(userMessage = null) }
     }
 }

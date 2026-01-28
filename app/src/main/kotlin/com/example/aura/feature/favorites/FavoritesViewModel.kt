@@ -1,9 +1,14 @@
 package com.example.aura.feature.favorites
 
+import android.util.Log
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aura.domain.model.MediaContent
 import com.example.aura.domain.repository.FavoritesRepository
-import com.example.aura.shared.core.util.StateViewModel
+import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.ContainerSettings
+import com.example.aura.shared.core.mvi.container
+import com.example.aura.shared.core.mvi.intent
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination
 import kotlinx.coroutines.flow.catch
@@ -14,29 +19,41 @@ import kotlinx.coroutines.launch
 class FavoritesViewModel(
     private val favoritesRepository: FavoritesRepository,
     private val navigator: AppNavigator
-) : StateViewModel<FavoritesState>(FavoritesState()) {
+) : ContainerHost<FavoritesState, FavoritesEffect>, ViewModel() {
+
+    override val container = container<FavoritesState, FavoritesEffect>(
+        initialState = FavoritesState(),
+        settings = ContainerSettings(
+            exceptionHandler = { throwable ->
+                Log.e("FavoritesViewModel", "Error: $throwable")
+                intent {
+                    postSideEffect(FavoritesEffect.ShowUserMessage("An error occurred"))
+                }
+            }
+        )
+    )
 
     init {
         observeFavorites()
     }
 
-    private fun observeFavorites() {
+    private fun observeFavorites() = intent {
         favoritesRepository.observeFavorites()
             .onEach { items ->
-                updateState { it.copy(items = items, isLoading = false, error = null) }
+                reduce { copy(items = items, isLoading = false, error = null) }
             }
             .catch { e ->
-                updateState { it.copy(isLoading = false, error = e.message) }
+                reduce { copy(isLoading = false, error = e.message) }
             }
             .launchIn(viewModelScope)
     }
 
-    fun onRemoveFavorite(item: MediaContent) {
+    fun onRemoveFavorite(item: MediaContent) = intent {
         viewModelScope.launch {
             try {
                 favoritesRepository.removeFromFavorite(item)
             } catch (e: Exception) {
-                updateState { it.copy(userMessage = e.message ?: "Failed to remove") }
+                postSideEffect(FavoritesEffect.ShowUserMessage(e.message ?: "Failed to remove"))
             }
         }
     }
@@ -49,9 +66,5 @@ class FavoritesViewModel(
             is MediaContent.WallpaperContent ->
                 navigator.navigate(Destination.WallpaperDetail(item.wallpaper))
         }
-    }
-
-    fun onMessageShown() {
-        updateState { it.copy(userMessage = null) }
     }
 }

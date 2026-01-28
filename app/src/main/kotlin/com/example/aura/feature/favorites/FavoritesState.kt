@@ -6,5 +6,8 @@ data class FavoritesState(
     val items: List<MediaContent> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val userMessage: String? = null
 )
+
+sealed interface FavoritesEffect {
+    data class ShowUserMessage(val message: String) : FavoritesEffect
+}

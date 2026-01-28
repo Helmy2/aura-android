@@ -15,19 +15,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.WallpaperGallery
+import com.example.aura.shared.core.mvi.CollectSideEffect
+import com.example.aura.shared.core.mvi.collectAsState
 import org.koin.compose.viewmodel.koinViewModel
 
-@Suppress("ParamsComparedByRef")
 @Composable
 fun WallpaperListScreen(
     viewModel: WallpaperListViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.collectAsState()
     val listState = rememberLazyStaggeredGridState()
     val snackbarHostState = remember { SnackbarHostState() }
     val searchState = rememberTextFieldState()
@@ -36,7 +36,6 @@ fun WallpaperListScreen(
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
             val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-
             totalItems > 0 &&
                     lastVisibleIndex >= (totalItems - 5) &&
                     !state.isLoading &&
@@ -51,10 +50,17 @@ fun WallpaperListScreen(
         }
     }
 
-    LaunchedEffect(state.userMessage) {
-        state.userMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            viewModel.onMessageShown()
+    viewModel.CollectSideEffect { effect ->
+        when (effect) {
+            is WallpaperListEffect.ShowError -> {
+                snackbarHostState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
+            }
+            is WallpaperListEffect.ShowMessage -> {
+                snackbarHostState.showSnackbar(effect.message)
+            }
         }
     }
 
@@ -78,7 +84,8 @@ fun WallpaperListScreen(
                 WallpaperGallery(
                     contentPadding = padding,
                     listState = listState,
-                    wallpapers = if (state.isSearchMode) state.searchWallpapers else state.wallpapers,
+                    wallpapers = if (state.isSearchMode) state.searchWallpapers
+                    else state.wallpapers,
                     onWallpaperClick = viewModel::onWallpaperClicked,
                     onWallpaperFavoriteClick = viewModel::onToggleFavorite,
                     isPaginationLoading = state.isPaginationLoading,
