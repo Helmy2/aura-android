@@ -26,6 +26,7 @@ aura = "0.0.1"
 screenshot = "0.0.1-alpha13"
 mockk = "1.13.13"
 kotlinxCoroutinesTest = "1.10.1"
+turbine = "1.2.0"
 
 [libraries]
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
@@ -75,6 +76,7 @@ aura-shared = { group = "com.helmy.aura", name = "shared-android", version.ref =
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot"}
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 [bundles]
 coil = ["coil-compose", "coil-compose-core", "coil-network-ktor3"]
