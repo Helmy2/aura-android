@@ -24,6 +24,8 @@ media3 = "1.9.1"
 
 aura = "0.0.1"
 screenshot = "0.0.1-alpha13"
+mockk = "1.13.13"
+kotlinxCoroutinesTest = "1.10.1"
 
 [libraries]
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
@@ -71,6 +73,8 @@ media3-ui-compose = { group = "androidx.media3", name = "media3-ui-compose", ver
 aura-shared = { group = "com.helmy.aura", name = "shared-android", version.ref = "aura" }
 
 screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot"}
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 
 [bundles]
 coil = ["coil-compose", "coil-compose-core", "coil-network-ktor3"]

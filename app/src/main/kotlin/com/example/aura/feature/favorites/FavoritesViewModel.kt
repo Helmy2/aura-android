@@ -14,7 +14,6 @@ import com.example.aura.shared.navigation.Destination
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 
 class FavoritesViewModel(
     private val favoritesRepository: FavoritesRepository,
@@ -49,12 +48,10 @@ class FavoritesViewModel(
     }
 
     fun onRemoveFavorite(item: MediaContent) = intent {
-        viewModelScope.launch {
-            try {
-                favoritesRepository.removeFromFavorite(item)
-            } catch (e: Exception) {
-                postSideEffect(FavoritesEffect.ShowUserMessage(e.message ?: "Failed to remove"))
-            }
+        try {
+            favoritesRepository.removeFromFavorite(item)
+        } catch (e: Exception) {
+            postSideEffect(FavoritesEffect.ShowUserMessage(e.message ?: "Failed to remove"))
         }
     }
 

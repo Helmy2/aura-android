@@ -1,9 +1,11 @@
 package com.example.aura.feature.settings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.ThemeMode
 import com.example.aura.domain.repository.SettingsRepository
 import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.ContainerSettings
 import com.example.aura.shared.core.mvi.container
 import com.example.aura.shared.core.mvi.intent
 import kotlinx.coroutines.flow.catch
@@ -15,7 +17,17 @@ class SettingsViewModel(
     private val settingsRepository: SettingsRepository
 ) : ContainerHost<SettingsState, SettingsEffect>, ViewModel() {
 
-    override val container = container<SettingsState, SettingsEffect>(SettingsState())
+    override val container = container<SettingsState, SettingsEffect>(
+        initialState = SettingsState(),
+        settings = ContainerSettings(
+            exceptionHandler = { throwable ->
+                Log.e(TAG, "Unhandled error: $throwable")
+                intent {
+                    postSideEffect(SettingsEffect.ShowError("An unexpected error occurred"))
+                }
+            }
+        )
+    )
 
     init {
         observeThemeMode()
@@ -52,5 +64,9 @@ class SettingsViewModel(
                 SettingsEffect.ShowError(e.message ?: "Failed to update theme")
             )
         }
+    }
+
+    companion object {
+        private const val TAG = "SettingsViewModel"
     }
 }

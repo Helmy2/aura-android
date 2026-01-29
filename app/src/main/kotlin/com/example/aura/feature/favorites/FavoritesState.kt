@@ -1,7 +1,9 @@
 package com.example.aura.feature.favorites
 
+import androidx.compose.runtime.Immutable
 import com.example.aura.domain.model.MediaContent
 
+@Immutable
 data class FavoritesState(
     val items: List<MediaContent> = emptyList(),
     val isLoading: Boolean = true,

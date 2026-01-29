@@ -1,10 +1,12 @@
 package com.example.aura.feature.videos.list
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.Video
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.domain.repository.VideoRepository
 import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.ContainerSettings
 import com.example.aura.shared.core.mvi.container
 import com.example.aura.shared.core.mvi.intent
 import com.example.aura.shared.navigation.AppNavigator
@@ -19,9 +21,17 @@ class VideosViewModel(
     private val navigator: AppNavigator
 ) : ContainerHost<VideosState, VideosEffect>, ViewModel() {
 
-    override val container = container<VideosState, VideosEffect>(VideosState())
-
-    private var currentActiveQuery: String = ""
+    override val container = container<VideosState, VideosEffect>(
+        initialState = VideosState(),
+        settings = ContainerSettings(
+            exceptionHandler = { throwable ->
+                Log.e(TAG, "Unhandled error: $throwable")
+                intent {
+                    postSideEffect(VideosEffect.ShowError("An unexpected error occurred"))
+                }
+            }
+        )
+    )
 
     init {
         loadPopularVideos(1)
@@ -62,7 +72,7 @@ class VideosViewModel(
     }
 
     private fun performSearch(query: String, page: Int) = intent {
-        currentActiveQuery = query
+        reduce { copy(searchQuery = query) }
 
         try {
             val videos = videoRepository.searchVideos(query, page)
@@ -77,7 +87,8 @@ class VideosViewModel(
                     isEndReached = videos.isEmpty()
                 )
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Search failed for query: $query", e)
             reduce {
                 copy(isLoading = false, isPaginationLoading = false)
             }
@@ -100,7 +111,7 @@ class VideosViewModel(
         reduce { copy(isPaginationLoading = true) }
 
         if (state.isSearchMode) {
-            performSearch(currentActiveQuery, nextPage)
+            performSearch(state.searchQuery, nextPage)
         } else {
             loadPopularVideos(nextPage)
         }
@@ -115,6 +126,7 @@ class VideosViewModel(
                 isLoading = true,
                 isEndReached = false,
                 currentPage = 1,
+                searchQuery = query,
                 searchVideos = emptyList()
             )
         }
@@ -123,13 +135,12 @@ class VideosViewModel(
     }
 
     fun onClearSearch() = intent {
-        currentActiveQuery = ""
-
         reduce {
             copy(
                 isSearchMode = false,
                 isEndReached = false,
-                currentPage = 1
+                currentPage = 1,
+                searchQuery = ""
             )
         }
 
@@ -142,7 +153,8 @@ class VideosViewModel(
     fun onFavoriteClicked(video: Video) = intent {
         try {
             favoritesRepository.toggleFavorite(video)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to toggle favorite for video: ${video.id}", e)
             postSideEffect(VideosEffect.ShowError("Failed to toggle favorite"))
         }
     }
@@ -163,5 +175,9 @@ class VideosViewModel(
                 }
             }
             .collect()
+    }
+
+    companion object {
+        private const val TAG = "VideosViewModel"
     }
 }

@@ -1,10 +1,12 @@
 package com.example.aura.feature.wallpaper.list
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.domain.repository.WallpaperRepository
 import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.ContainerSettings
 import com.example.aura.shared.core.mvi.container
 import com.example.aura.shared.core.mvi.intent
 import com.example.aura.shared.navigation.AppNavigator
@@ -19,9 +21,17 @@ class WallpaperListViewModel(
     private val navigator: AppNavigator
 ) : ContainerHost<WallpaperListState, WallpaperListEffect>, ViewModel() {
 
-    override val container = container<WallpaperListState, WallpaperListEffect>(WallpaperListState())
-
-    private var currentActiveQuery: String = ""
+    override val container = container<WallpaperListState, WallpaperListEffect>(
+        initialState = WallpaperListState(),
+        settings = ContainerSettings(
+            exceptionHandler = { throwable ->
+                Log.e(TAG, "Unhandled error: $throwable")
+                intent {
+                    postSideEffect(WallpaperListEffect.ShowError("An unexpected error occurred"))
+                }
+            }
+        )
+    )
 
     init {
         loadWallpapers(page = 1)
@@ -55,7 +65,7 @@ class WallpaperListViewModel(
     }
 
     private fun performSearch(query: String, page: Int) = intent {
-        currentActiveQuery = query
+        reduce { copy(searchQuery = query) }
 
         try {
             val results = wallpaperRepository.searchWallpapers(query, page)
@@ -71,7 +81,8 @@ class WallpaperListViewModel(
                     isEndReached = results.isEmpty()
                 )
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Search failed for query: $query", e)
             reduce {
                 copy(isLoading = false, isPaginationLoading = false)
             }
@@ -94,7 +105,7 @@ class WallpaperListViewModel(
         reduce { copy(isPaginationLoading = true) }
 
         if (state.isSearchMode) {
-            performSearch(currentActiveQuery, nextPage)
+            performSearch(state.searchQuery, nextPage)
         } else {
             loadWallpapers(nextPage)
         }
@@ -109,6 +120,7 @@ class WallpaperListViewModel(
                 isLoading = true,
                 isEndReached = false,
                 currentPage = 1,
+                searchQuery = query,
                 searchWallpapers = emptyList()
             )
         }
@@ -117,13 +129,12 @@ class WallpaperListViewModel(
     }
 
     fun onClearSearch() = intent {
-        currentActiveQuery = ""
-
         reduce {
             copy(
                 isSearchMode = false,
                 isEndReached = false,
-                currentPage = 1
+                currentPage = 1,
+                searchQuery = ""
             )
         }
 
@@ -135,7 +146,8 @@ class WallpaperListViewModel(
     fun onToggleFavorite(wallpaper: Wallpaper) = intent {
         try {
             favoritesRepository.toggleFavorite(wallpaper)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to toggle favorite for wallpaper: ${wallpaper.id}", e)
             postSideEffect(WallpaperListEffect.ShowError("Failed to update favorite"))
         }
     }
@@ -157,5 +169,9 @@ class WallpaperListViewModel(
                 }
             }
             .collect()
+    }
+
+    companion object {
+        private const val TAG = "WallpaperListViewModel"
     }
 }

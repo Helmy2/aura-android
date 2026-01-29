@@ -24,11 +24,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.aura.R
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination
 import org.koin.compose.koinInject
+import androidx.compose.ui.tooling.preview.Preview
+import com.example.aura.shared.theme.AuraTheme
 
 @Composable
 fun HomeScreen(
@@ -43,19 +47,19 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "Aura",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayLarge,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Text(
-                text = "Discover visual perfection",
+                text = stringResource(R.string.tagline),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = 40.dp)
             )
 
             MenuCard(
-                title = "Wallpapers",
+                title = stringResource(R.string.wallpapers),
                 icon = Icons.Default.Photo,
                 onClick = { navigator.navigate(Destination.WallpaperList) }
             )
@@ -63,11 +67,19 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             MenuCard(
-                title = "Videos",
+                title = stringResource(R.string.videos),
                 icon = Icons.Default.PlayArrow,
                 onClick = { navigator.navigate(Destination.VideoList) }
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun HomeScreenPreview() {
+    AuraTheme {
+        HomeScreen(navigator = AppNavigator())
     }
 }
 

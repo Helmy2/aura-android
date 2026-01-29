@@ -6,8 +6,8 @@ import com.example.aura.feature.videos.detail.VideoDetailViewModel
 import com.example.aura.feature.videos.list.VideosViewModel
 import com.example.aura.feature.wallpaper.detail.WallpaperViewModel
 import com.example.aura.feature.wallpaper.list.WallpaperListViewModel
-import com.example.aura.shared.core.util.ImageDownloader
-import com.example.aura.shared.core.util.VideoDownloader
+import com.example.aura.shared.data.downloader.ImageDownloader
+import com.example.aura.shared.data.downloader.VideoDownloader
 import com.example.aura.shared.navigation.AppNavigator
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf

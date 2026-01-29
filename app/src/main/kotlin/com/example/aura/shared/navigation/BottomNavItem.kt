@@ -8,9 +8,10 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.aura.R
 
 data class BottomNavItem(
-    val title: String,
+    val titleRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
     val destination: Destination
@@ -18,18 +19,18 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem(
-        title = "Home",
+        titleRes = R.string.home,
         selectedIcon = Icons.Filled.Home,
         unselectedIcon = Icons.Outlined.Home,
         destination = Destination.Home
     ),
     BottomNavItem(
-        title = "Favorites",
+        titleRes = R.string.favorites,
         selectedIcon = Icons.Filled.Favorite,
         unselectedIcon = Icons.Outlined.FavoriteBorder,
         destination = Destination.Favorites
     ), BottomNavItem(
-        title = "Settings",
+        titleRes = R.string.settings,
         selectedIcon = Icons.Filled.Settings,
         unselectedIcon = Icons.Outlined.Settings,
         destination = Destination.Settings

@@ -1,7 +1,9 @@
 package com.example.aura.feature.videos.detail
 
+import androidx.compose.runtime.Immutable
 import com.example.aura.domain.model.Video
 
+@Immutable
 data class VideoDetailState(
     val video: Video? = null,
     val isLoading: Boolean = false,

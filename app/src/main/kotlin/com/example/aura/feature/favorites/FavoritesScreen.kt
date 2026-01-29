@@ -18,8 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.aura.R
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.MediaContentGallery
 import com.example.aura.shared.core.mvi.CollectSideEffect
@@ -49,7 +51,7 @@ fun FavoritesScreen(
         Box {
             if (state.error != null) {
                 Text(
-                    text = "Error: ${state.error}",
+                    text = stringResource(id = R.string.search_failed) + ": ${state.error}",
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
@@ -70,7 +72,7 @@ fun FavoritesScreen(
 @Composable
 private fun EmptyFavoritesView(
     modifier: Modifier = Modifier,
-    message: String = "No favorites yet"
+    message: String = stringResource(R.string.no_favorites)
 ) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -94,7 +96,7 @@ private fun EmptyFavoritesView(
             )
 
             Text(
-                text = "Start adding items by tapping the heart icon",
+                text = stringResource(R.string.start_adding_favorites),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 textAlign = TextAlign.Center,

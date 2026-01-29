@@ -1,4 +1,4 @@
-package com.example.aura.shared.core.util
+package com.example.aura.shared.data.downloader
 
 import android.content.ContentValues
 import android.content.Context

@@ -1,12 +1,14 @@
 package com.example.aura.feature.wallpaper.detail
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.shared.core.mvi.ContainerHost
+import com.example.aura.shared.core.mvi.ContainerSettings
 import com.example.aura.shared.core.mvi.container
 import com.example.aura.shared.core.mvi.intent
-import com.example.aura.shared.core.util.ImageDownloader
+import com.example.aura.shared.data.downloader.ImageDownloader
 import com.example.aura.shared.navigation.AppNavigator
 
 class WallpaperViewModel(
@@ -15,7 +17,17 @@ class WallpaperViewModel(
     private val navigator: AppNavigator
 ) : ContainerHost<WallpaperDetailState, WallpaperDetailEffect>, ViewModel() {
 
-    override val container = container<WallpaperDetailState, WallpaperDetailEffect>(WallpaperDetailState())
+    override val container = container<WallpaperDetailState, WallpaperDetailEffect>(
+        initialState = WallpaperDetailState(),
+        settings = ContainerSettings(
+            exceptionHandler = { throwable ->
+                Log.e(TAG, "Unhandled error: $throwable")
+                intent {
+                    postSideEffect(WallpaperDetailEffect.ShowError("An unexpected error occurred"))
+                }
+            }
+        )
+    )
 
     fun loadWallpaper(wallpaper: Wallpaper) = intent {
         if (state.wallpaper?.id != wallpaper.id) {
@@ -59,11 +71,16 @@ class WallpaperViewModel(
 
         try {
             favoritesRepository.toggleFavorite(wallpaper)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to toggle favorite for wallpaper: ${wallpaper.id}", e)
             reduce {
                 copy(wallpaper = wallpaper.copy(isFavorite = !newStatus))
             }
             postSideEffect(WallpaperDetailEffect.ShowError("Failed to update favorite"))
         }
+    }
+
+    companion object {
+        private const val TAG = "WallpaperViewModel"
     }
 }

@@ -15,6 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.example.aura.R
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
@@ -68,7 +70,7 @@ fun VideosScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AuraTransparentTopBar(
-                title = "Videos",
+                title = stringResource(R.string.videos),
                 onBackClick = viewModel::onBackClicked
             )
         }
@@ -76,7 +78,7 @@ fun VideosScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             if (state.error != null && state.popularVideos.isEmpty()) {
                 Text(
-                    text = "Error: ${state.error}",
+                    text = stringResource(id = R.string.search_failed) + ": ${state.error}",
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
@@ -96,7 +98,7 @@ fun VideosScreen(
                         )
                     },
                     emptyContent = {
-                        Text(text = "No results found")
+                        Text(text = stringResource(R.string.no_results))
                     }
                 )
             }
