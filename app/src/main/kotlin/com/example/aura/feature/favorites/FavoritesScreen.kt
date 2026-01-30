@@ -14,6 +14,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -24,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.example.aura.R
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.MediaContentGallery
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -37,7 +38,11 @@ fun FavoritesScreen(
     val state by viewModel.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    viewModel.CollectSideEffect {
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+
+    viewModel.collectSideEffect {
         when (it) {
             is FavoritesEffect.ShowUserMessage -> {
                 snackbarHostState.showSnackbar(it.message)

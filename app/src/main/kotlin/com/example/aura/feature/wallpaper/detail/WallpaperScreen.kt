@@ -36,8 +36,8 @@ import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.FavoriteButton
 import com.example.aura.shared.component.SystemBarStyle
 import com.example.aura.shared.core.extensions.toColor
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -55,7 +55,7 @@ fun WallpaperScreen(
         viewModel.loadWallpaper(wallpaper)
     }
 
-    viewModel.CollectSideEffect { effect ->
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is WallpaperDetailEffect.ShowMessage -> {
                 snackbarState.showSnackbar(effect.message)

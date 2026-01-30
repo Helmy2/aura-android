@@ -52,8 +52,8 @@ import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import com.example.aura.R
 import com.example.aura.domain.model.Video
 import com.example.aura.shared.component.AuraScaffold
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import com.example.aura.shared.theme.dimens
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
@@ -71,7 +71,7 @@ fun VideoDetailScreen(
         viewModel.loadVideo(video)
     }
 
-    viewModel.CollectSideEffect { effect ->
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is VideoDetailEffect.ShowMessage -> {
                 snackbarHostState.showSnackbar(effect.message)

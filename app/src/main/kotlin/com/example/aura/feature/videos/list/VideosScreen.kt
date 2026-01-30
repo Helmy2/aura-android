@@ -21,8 +21,8 @@ import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.VideoGallery
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -46,13 +46,17 @@ fun VideosScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
             viewModel.onLoadNextPage()
         }
     }
 
-    viewModel.CollectSideEffect { effect ->
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is VideosEffect.ShowError -> {
                 snackbarHostState.showSnackbar(

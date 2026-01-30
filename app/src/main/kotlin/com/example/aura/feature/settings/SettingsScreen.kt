@@ -18,6 +18,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,11 +29,11 @@ import com.example.aura.R
 import com.example.aura.domain.model.ThemeMode
 import com.example.aura.shared.component.AuraCard
 import com.example.aura.shared.component.AuraTransparentTopBar
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
 import com.example.aura.shared.theme.AuraTheme
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 
 @Composable
 fun SettingsScreen(
@@ -41,7 +42,11 @@ fun SettingsScreen(
     val state by viewModel.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    viewModel.CollectSideEffect { effect ->
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is SettingsEffect.ShowError -> {
                 snackbarHostState.showSnackbar(

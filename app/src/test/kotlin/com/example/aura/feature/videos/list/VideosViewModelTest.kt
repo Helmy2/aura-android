@@ -19,9 +19,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.orbitmvi.orbit.test.test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VideosViewModelTest {
@@ -46,74 +46,111 @@ class VideosViewModelTest {
         val videos = listOf(mockk<Video>(relaxed = true) { every { id } returns 1L })
         coEvery { videoRepository.getPopularVideos(1) } returns videos
 
-        val viewModel = VideosViewModel(videoRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        VideosViewModel(videoRepository, favoritesRepository, navigator).test(this) {
+            containerHost.onCreate()
+            
+            expectState {
+                copy(isLoading = true)
+            }
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(1, state.popularVideos.size)
-        assertEquals(false, state.isLoading)
+            expectState {
+                copy(popularVideos = videos, isLoading = false)
+            }
+
+            cancelAndIgnoreRemainingItems()
+        }
     }
 
     @Test
     fun `onSearchTriggered should update state and perform search`() = runTest {
         val query = "cars"
         val videos = listOf(mockk<Video>(relaxed = true) { every { id } returns 2L })
+        coEvery { videoRepository.getPopularVideos(1) } returns listOf(mockk<Video>(relaxed = true) { every { id } returns 1L })
         coEvery { videoRepository.searchVideos(query, 1) } returns videos
 
-        val viewModel = VideosViewModel(videoRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        VideosViewModel(videoRepository, favoritesRepository, navigator).test(this) {
+            containerHost.onSearchTriggered(query)
 
-        viewModel.onSearchTriggered(query)
-        advanceUntilIdle()
+            expectState {
+                copy(
+                    isSearchMode = true,
+                    isLoading = true,
+                    isEndReached = false,
+                    currentPage = 1,
+                    searchQuery = query,
+                    searchVideos = emptyList()
+                )
+            }
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(true, state.isSearchMode)
-        assertEquals(query, state.searchQuery)
-        assertEquals(1, state.searchVideos.size)
-        assertEquals(2L, state.searchVideos[0].id)
+            expectState {
+                copy(
+                    searchVideos = videos,
+                    isLoading = false,
+                    isPaginationLoading = false,
+                    currentPage = 1,
+                    isEndReached = videos.isEmpty()
+                )
+            }
+        }
     }
 
     @Test
     fun `onLoadNextPage in normal mode should append videos`() = runTest {
         val initialVideos = listOf(mockk<Video>(relaxed = true) { every { id } returns 1L })
         val nextVideos = listOf(mockk<Video>(relaxed = true) { every { id } returns 2L })
-        coEvery { videoRepository.getPopularVideos(1) } returns initialVideos
         coEvery { videoRepository.getPopularVideos(2) } returns nextVideos
 
-        val viewModel = VideosViewModel(videoRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        val initialState = VideosState(popularVideos = initialVideos, currentPage = 1, isLoading = false)
 
-        viewModel.onLoadNextPage()
-        advanceUntilIdle()
+        VideosViewModel(videoRepository, favoritesRepository, navigator).test(this, initialState = initialState) {
+            containerHost.onLoadNextPage()
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(2, state.popularVideos.size)
-        assertEquals(2, state.currentPage)
+            expectState {
+                copy(isPaginationLoading = true)
+            }
+
+            expectState {
+                copy(popularVideos = initialVideos + nextVideos, currentPage = 2, isPaginationLoading = false)
+            }
+        }
     }
 
     @Test
     fun `onClearSearch should reset search mode`() = runTest {
-        val viewModel = VideosViewModel(videoRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        val query = "query"
+        val initialVideos = listOf(mockk<Video>(relaxed = true) { every { id } returns 1L })
+        val searchVideos = listOf(mockk<Video>(relaxed = true) { every { id } returns 2L })
 
-        viewModel.onSearchTriggered("query")
-        advanceUntilIdle()
-        
-        viewModel.onClearSearch()
-        advanceUntilIdle()
+        // Initial state includes search mode active
+        val initialState = VideosState(
+            popularVideos = initialVideos,
+            isSearchMode = true,
+            searchQuery = query,
+            searchVideos = searchVideos,
+            currentPage = 1
+        )
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(false, state.isSearchMode)
-        assertEquals("", state.searchQuery)
+        VideosViewModel(videoRepository, favoritesRepository, navigator).test(this, initialState = initialState) {
+            containerHost.onClearSearch()
+
+            expectState {
+                copy(
+                    isSearchMode = false,
+                    isEndReached = false,
+                    currentPage = 1,
+                    searchQuery = ""
+                )
+            }
+        }
     }
 
     @Test
     fun `onVideoClicked should navigate to detail`() {
         val video = mockk<Video>(relaxed = true)
         val viewModel = VideosViewModel(videoRepository, favoritesRepository, navigator)
-        
+
         viewModel.onVideoClicked(video)
-        
+
         verify { navigator.navigate(Destination.VideoDetail(video)) }
     }
 
@@ -123,8 +160,8 @@ class VideosViewModelTest {
         val viewModel = VideosViewModel(videoRepository, favoritesRepository, navigator)
         
         viewModel.onFavoriteClicked(video)
-        advanceUntilIdle()
-
+        advanceUntilIdle() // Wait for intent to execute
+        
         coVerify { favoritesRepository.toggleFavorite(video) }
     }
 }

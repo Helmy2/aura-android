@@ -1,19 +1,24 @@
 package com.example.aura.feature.wallpaper.detail
 
-import app.cash.turbine.test
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.shared.data.downloader.ImageDownloader
 import com.example.aura.shared.navigation.AppNavigator
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.*
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import kotlin.time.Duration.Companion.seconds
+import org.orbitmvi.orbit.test.test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WallpaperViewModelTest {
@@ -35,13 +40,14 @@ class WallpaperViewModelTest {
     @Test
     fun `loadWallpaper should update state`() = runTest {
         val wallpaper = mockk<Wallpaper>(relaxed = true)
-        val viewModel = WallpaperViewModel(favoritesRepository, imageDownloader, navigator)
-        
-        viewModel.loadWallpaper(wallpaper)
-        advanceUntilIdle()
 
-        assertEquals(wallpaper, viewModel.container.stateFlow.value.wallpaper)
-        assertEquals(false, viewModel.container.stateFlow.value.isLoading)
+        WallpaperViewModel(favoritesRepository, imageDownloader, navigator).test(this) {
+            containerHost.loadWallpaper(wallpaper)
+
+            expectState {
+                copy(wallpaper = wallpaper, isLoading = false, error=null)
+            }
+        }
     }
 
     @Test
@@ -50,19 +56,24 @@ class WallpaperViewModelTest {
             every { id } returns 1L
             every { imageUrl } returns "http://example.com/image.jpg"
         }
-        val viewModel = WallpaperViewModel(favoritesRepository, imageDownloader, navigator)
-        viewModel.loadWallpaper(wallpaper)
-        advanceUntilIdle()
-
         coEvery { imageDownloader.downloadImage(any(), any()) } returns true
 
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onDownloadClicked()
-            
-            val effect = awaitItem()
-            assert(effect is WallpaperDetailEffect.ShowMessage)
-            assertEquals("Download finished", (effect as WallpaperDetailEffect.ShowMessage).message)
-            assertEquals(false, viewModel.container.stateFlow.value.isDownloading)
+        WallpaperViewModel(favoritesRepository, imageDownloader, navigator).test(this) {
+            containerHost.loadWallpaper(wallpaper)
+
+            expectState {
+                copy(wallpaper = wallpaper, isLoading = false, error=null)
+            }
+
+            containerHost.onDownloadClicked()
+
+            expectState {
+                copy(isDownloading = true)
+            }
+            expectState {
+                copy(isDownloading = false)
+            }
+            expectSideEffect(WallpaperDetailEffect.ShowMessage("Download finished"))
             coVerify { imageDownloader.downloadImage(any(), any()) }
         }
     }
@@ -73,19 +84,24 @@ class WallpaperViewModelTest {
             every { id } returns 1L
             every { imageUrl } returns "http://example.com/image.jpg"
         }
-        val viewModel = WallpaperViewModel(favoritesRepository, imageDownloader, navigator)
-        viewModel.loadWallpaper(wallpaper)
-        advanceUntilIdle()
-
         coEvery { imageDownloader.downloadImage(any(), any()) } returns false
 
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onDownloadClicked()
-            
-            val effect = awaitItem()
-            assert(effect is WallpaperDetailEffect.ShowError)
-            assertEquals("Download failed", (effect as WallpaperDetailEffect.ShowError).message)
-            assertEquals(false, viewModel.container.stateFlow.value.isDownloading)
+        WallpaperViewModel(favoritesRepository, imageDownloader, navigator).test(this) {
+            containerHost.loadWallpaper(wallpaper)
+
+            expectState {
+                copy(wallpaper = wallpaper, isLoading = false, error=null)
+            }
+
+            containerHost.onDownloadClicked()
+
+            expectState {
+                copy(isDownloading = true)
+            }
+            expectState {
+                copy(isDownloading = false)
+            }
+            expectSideEffect(WallpaperDetailEffect.ShowError("Download failed"))
         }
     }
 
@@ -95,12 +111,21 @@ class WallpaperViewModelTest {
             every { id } returns 1L
             every { isFavorite } returns false
         }
-        val viewModel = WallpaperViewModel(favoritesRepository, imageDownloader, navigator)
-        
-        viewModel.onToggleFavorite(wallpaper)
-        advanceUntilIdle()
+        WallpaperViewModel(favoritesRepository, imageDownloader, navigator).test(this) {
+            containerHost.loadWallpaper(wallpaper)
 
-        coVerify { favoritesRepository.toggleFavorite(any<Wallpaper>()) }
+            expectState {
+                copy(wallpaper = wallpaper, isLoading = false, error=null)
+            }
+
+            containerHost.onToggleFavorite(wallpaper)
+
+            expectState {
+                copy(wallpaper = wallpaper.copy(isFavorite = true))
+            }
+            
+            coVerify { favoritesRepository.toggleFavorite(any<Wallpaper>()) }
+        }
     }
 
     @Test
@@ -111,15 +136,22 @@ class WallpaperViewModelTest {
         }
         coEvery { favoritesRepository.toggleFavorite(any<Wallpaper>()) } throws Exception("Failed")
 
-        val viewModel = WallpaperViewModel(favoritesRepository, imageDownloader, navigator)
-        
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onToggleFavorite(wallpaper)
-            
-            val effect = awaitItem()
-            assert(effect is WallpaperDetailEffect.ShowError)
-            // Should be false because of rollback
-            assertEquals(false, viewModel.container.stateFlow.value.wallpaper?.isFavorite)
+        WallpaperViewModel(favoritesRepository, imageDownloader, navigator).test(this) {
+            containerHost.loadWallpaper(wallpaper)
+
+            expectState {
+                copy(wallpaper = wallpaper, isLoading = false, error=null)
+            }
+
+            containerHost.onToggleFavorite(wallpaper)
+
+            expectState {
+                copy(wallpaper = wallpaper.copy(isFavorite = true))
+            }
+            expectState {
+                copy(wallpaper = wallpaper.copy(isFavorite = false))
+            }
+            expectSideEffect(WallpaperDetailEffect.ShowError("Failed to update favorite"))
         }
     }
 

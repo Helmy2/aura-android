@@ -19,9 +19,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.orbitmvi.orbit.test.test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WallpaperListViewModelTest {
@@ -46,73 +46,100 @@ class WallpaperListViewModelTest {
         val wallpapers = listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 1L })
         coEvery { wallpaperRepository.getCuratedWallpapers(1) } returns wallpapers
 
-        val viewModel = WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator).test(this) {
+            containerHost.onCreate()
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(1, state.wallpapers.size)
-        assertEquals(false, state.isLoading)
+            expectState {
+                copy(wallpapers = wallpapers, isLoading = false)
+            }
+
+            cancelAndIgnoreRemainingItems()
+        }
     }
 
     @Test
     fun `onSearchTriggered should update state and perform search`() = runTest {
         val query = "nature"
         val results = listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 2L })
+        coEvery { wallpaperRepository.getCuratedWallpapers(1) } returns listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 1L })
         coEvery { wallpaperRepository.searchWallpapers(query, 1) } returns results
 
-        val viewModel = WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator).test(this) {
+            containerHost.onSearchTriggered(query)
 
-        viewModel.onSearchTriggered(query)
-        advanceUntilIdle()
-
-        val state = viewModel.container.stateFlow.value
-        assertEquals(true, state.isSearchMode)
-        assertEquals(query, state.searchQuery)
-        assertEquals(1, state.searchWallpapers.size)
+            expectState {
+                copy(
+                    isSearchMode = true,
+                    isLoading = true,
+                    isEndReached = false,
+                    currentPage = 1,
+                    searchQuery = query,
+                    searchWallpapers = emptyList()
+                )
+            }
+            expectState {
+                copy(
+                     searchWallpapers = results,
+                     isLoading = false,
+                     isPaginationLoading = false,
+                     currentPage = 1,
+                     isEndReached = results.isEmpty()
+                )
+            }
+        }
     }
 
     @Test
     fun `onLoadNextPage should append wallpapers`() = runTest {
         val initial = listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 1L })
         val next = listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 2L })
-        coEvery { wallpaperRepository.getCuratedWallpapers(1) } returns initial
         coEvery { wallpaperRepository.getCuratedWallpapers(2) } returns next
 
-        val viewModel = WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
+        val initialState = WallpaperListState(wallpapers = initial, currentPage = 1, isLoading = false)
 
-        viewModel.onLoadNextPage()
-        advanceUntilIdle()
+        WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator).test(this, initialState = initialState) {
+            containerHost.onLoadNextPage()
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(2, state.wallpapers.size)
-        assertEquals(2, state.currentPage)
+            expectState {
+                copy(isPaginationLoading = true)
+            }
+
+            expectState {
+                copy(wallpapers = initial + next, currentPage = 2, isPaginationLoading = false)
+            }
+        }
     }
 
     @Test
     fun `onClearSearch should reset search mode`() = runTest {
-        val viewModel = WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator)
-        advanceUntilIdle()
-
-        viewModel.onSearchTriggered("nature")
-        advanceUntilIdle()
+        val query = "nature"
+        val initial = listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 1L })
+        val results = listOf(mockk<Wallpaper>(relaxed = true) { every { id } returns 2L })
         
-        viewModel.onClearSearch()
-        advanceUntilIdle()
+        val initialState = WallpaperListState(
+            wallpapers = initial,
+            isSearchMode = true,
+            searchQuery = query,
+            searchWallpapers = results,
+            currentPage = 1
+        )
 
-        val state = viewModel.container.stateFlow.value
-        assertEquals(false, state.isSearchMode)
-        assertEquals("", state.searchQuery)
+        WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator).test(this, initialState = initialState) {
+            containerHost.onClearSearch()
+
+            expectState {
+                copy(isSearchMode = false, searchQuery = "")
+            }
+        }
     }
 
     @Test
     fun `onWallpaperClicked should navigate to detail`() {
         val wallpaper = mockk<Wallpaper>(relaxed = true)
         val viewModel = WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator)
-        
+
         viewModel.onWallpaperClicked(wallpaper)
-        
+
         verify { navigator.navigate(Destination.WallpaperDetail(wallpaper)) }
     }
 
@@ -120,9 +147,9 @@ class WallpaperListViewModelTest {
     fun `onToggleFavorite should call repository`() = runTest {
         val wallpaper = mockk<Wallpaper>(relaxed = true)
         val viewModel = WallpaperListViewModel(wallpaperRepository, favoritesRepository, navigator)
-        
+
         viewModel.onToggleFavorite(wallpaper)
-        advanceUntilIdle()
+        advanceUntilIdle() // Wait for intent to execute
 
         coVerify { favoritesRepository.toggleFavorite(wallpaper) }
     }

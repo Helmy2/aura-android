@@ -1,19 +1,24 @@
 package com.example.aura.feature.videos.detail
 
-import app.cash.turbine.test
 import com.example.aura.domain.model.Video
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.shared.data.downloader.VideoDownloader
 import com.example.aura.shared.navigation.AppNavigator
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.*
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import kotlin.time.Duration.Companion.seconds
+import org.orbitmvi.orbit.test.test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VideoDetailViewModelTest {
@@ -35,13 +40,14 @@ class VideoDetailViewModelTest {
     @Test
     fun `loadVideo should update state`() = runTest {
         val video = mockk<Video>(relaxed = true)
-        val viewModel = VideoDetailViewModel(favoritesRepository, navigator, videoDownloader)
-        
-        viewModel.loadVideo(video)
-        advanceUntilIdle()
 
-        assertEquals(video, viewModel.container.stateFlow.value.video)
-        assertEquals(false, viewModel.container.stateFlow.value.isLoading)
+        VideoDetailViewModel(favoritesRepository, navigator, videoDownloader).test(this) {
+            containerHost.loadVideo(video)
+
+            expectState {
+                copy(video = video, isLoading = false)
+            }
+        }
     }
 
     @Test
@@ -50,19 +56,26 @@ class VideoDetailViewModelTest {
             every { id } returns 1L
             every { videoUrl } returns "http://example.com/video.mp4"
         }
-        val viewModel = VideoDetailViewModel(favoritesRepository, navigator, videoDownloader)
-        viewModel.loadVideo(video)
-        advanceUntilIdle()
-
         every { videoDownloader.downloadVideo(any(), any()) } returns 123L
 
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onDownloadClicked()
+        VideoDetailViewModel(favoritesRepository, navigator, videoDownloader).test(this) {
+            containerHost.loadVideo(video)
+
+            containerHost.loadVideo(video)
             
-            val effect = awaitItem()
-            assert(effect is VideoDetailEffect.ShowMessage)
-            assertEquals("Download started", (effect as VideoDetailEffect.ShowMessage).message)
-            assertEquals(false, viewModel.container.stateFlow.value.isDownloading)
+            expectState {
+                copy(video = video, isLoading = false)
+            }
+
+            containerHost.onDownloadClicked()
+
+            expectState {
+                copy(isDownloading = true)
+            }
+            expectState {
+                copy(isDownloading = false)
+            }
+            expectSideEffect(VideoDetailEffect.ShowMessage("Download started"))
             verify { videoDownloader.downloadVideo(any(), any()) }
         }
     }
@@ -73,19 +86,24 @@ class VideoDetailViewModelTest {
             every { id } returns 1L
             every { videoUrl } returns "http://example.com/video.mp4"
         }
-        val viewModel = VideoDetailViewModel(favoritesRepository, navigator, videoDownloader)
-        viewModel.loadVideo(video)
-        advanceUntilIdle()
-
         every { videoDownloader.downloadVideo(any(), any()) } throws Exception("Failed")
 
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onDownloadClicked()
-            
-            val effect = awaitItem()
-            assert(effect is VideoDetailEffect.ShowError)
-            assertEquals("Download failed", (effect as VideoDetailEffect.ShowError).message)
-            assertEquals(false, viewModel.container.stateFlow.value.isDownloading)
+        VideoDetailViewModel(favoritesRepository, navigator, videoDownloader).test(this) {
+            containerHost.loadVideo(video)
+
+            expectState {
+                copy(video = video, isLoading = false)
+            }
+
+            containerHost.onDownloadClicked()
+
+            expectState {
+                copy(isDownloading = true)
+            }
+            expectState {
+                copy(isDownloading = false)
+            }
+            expectSideEffect(VideoDetailEffect.ShowError("Download failed"))
         }
     }
 
@@ -95,14 +113,21 @@ class VideoDetailViewModelTest {
             every { id } returns 1L
             every { isFavorite } returns false
         }
-        val viewModel = VideoDetailViewModel(favoritesRepository, navigator, videoDownloader)
-        viewModel.loadVideo(video)
-        advanceUntilIdle()
+        VideoDetailViewModel(favoritesRepository, navigator, videoDownloader).test(this) {
+            containerHost.loadVideo(video)
 
-        viewModel.onToggleFavorite()
-        advanceUntilIdle()
+            expectState {
+                copy(video = video, isLoading = false)
+            }
 
-        coVerify { favoritesRepository.toggleFavorite(any<Video>()) }
+            containerHost.onToggleFavorite()
+
+            expectState {
+                copy(video = video.copy(isFavorite = true))
+            }
+
+            coVerify { favoritesRepository.toggleFavorite(any<Video>()) }
+        }
     }
 
     @Test
@@ -113,17 +138,24 @@ class VideoDetailViewModelTest {
         }
         coEvery { favoritesRepository.toggleFavorite(any<Video>()) } throws Exception("Error")
 
-        val viewModel = VideoDetailViewModel(favoritesRepository, navigator, videoDownloader)
-        viewModel.loadVideo(video)
-        advanceUntilIdle()
+        VideoDetailViewModel(favoritesRepository, navigator, videoDownloader).test(this) {
+            containerHost.loadVideo(video)
 
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onToggleFavorite()
-            
-            val effect = awaitItem()
-            assert(effect is VideoDetailEffect.ShowError)
-            // Rollback to false
-            assertEquals(false, viewModel.container.stateFlow.value.video?.isFavorite)
+            containerHost.loadVideo(video)
+
+            expectState {
+                copy(video = video, isLoading = false)
+            }
+
+            containerHost.onToggleFavorite()
+
+            expectState {
+                copy(video = video.copy(isFavorite = true))
+            }
+            expectState {
+                copy(video = video.copy(isFavorite = false))
+            }
+            expectSideEffect(VideoDetailEffect.ShowError("Failed to update favorite"))
         }
     }
 

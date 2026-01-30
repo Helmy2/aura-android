@@ -1,21 +1,24 @@
 package com.example.aura.feature.favorites
 
-import app.cash.turbine.test
 import com.example.aura.domain.model.MediaContent
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.*
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import kotlin.time.Duration.Companion.seconds
+import org.orbitmvi.orbit.test.test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FavoritesViewModelTest {
@@ -38,22 +41,13 @@ class FavoritesViewModelTest {
         val favorites = listOf(mockk<MediaContent.WallpaperContent>(relaxed = true))
         coEvery { favoritesRepository.observeFavorites() } returns flowOf(favorites)
 
-        val viewModel = FavoritesViewModel(favoritesRepository, navigator)
-        advanceUntilIdle()
+        FavoritesViewModel(favoritesRepository, navigator).test(this) {
+            containerHost.onCreate()
 
-        assertEquals(favorites, viewModel.container.stateFlow.value.items)
-        assertEquals(false, viewModel.container.stateFlow.value.isLoading)
-    }
-
-    @Test
-    fun `onRemoveFavorite should call repository`() = runTest {
-        val item = mockk<MediaContent.WallpaperContent>(relaxed = true)
-        val viewModel = FavoritesViewModel(favoritesRepository, navigator)
-        
-        viewModel.onRemoveFavorite(item)
-        advanceUntilIdle()
-
-        coVerify { favoritesRepository.removeFromFavorite(item) }
+            expectState {
+                copy(items = favorites, isLoading = false)
+            }
+        }
     }
 
     @Test
@@ -61,13 +55,11 @@ class FavoritesViewModelTest {
         val item = mockk<MediaContent.WallpaperContent>(relaxed = true)
         val errorMessage = "Removal failed"
         coEvery { favoritesRepository.removeFromFavorite(item) } throws Exception(errorMessage)
-        
-        val viewModel = FavoritesViewModel(favoritesRepository, navigator)
-        
-        viewModel.container.sideEffectFlow.test(timeout = 2.seconds) {
-            viewModel.onRemoveFavorite(item)
-            val effect = awaitItem()
-            assert(effect is FavoritesEffect.ShowUserMessage && effect.message == errorMessage)
+
+        FavoritesViewModel(favoritesRepository, navigator).test(this) {
+            containerHost.onRemoveFavorite(item)
+
+            expectSideEffect(FavoritesEffect.ShowUserMessage(errorMessage))
         }
     }
 
@@ -98,10 +90,12 @@ class FavoritesViewModelTest {
         val errorMessage = "Stream error"
         coEvery { favoritesRepository.observeFavorites() } returns flow { throw Exception(errorMessage) }
 
-        val viewModel = FavoritesViewModel(favoritesRepository, navigator)
-        advanceUntilIdle()
+        FavoritesViewModel(favoritesRepository, navigator).test(this) {
+            containerHost.onCreate()
 
-        assertEquals(false, viewModel.container.stateFlow.value.isLoading)
-        assertEquals(errorMessage, viewModel.container.stateFlow.value.error)
+            expectState {
+                copy(isLoading = false, error = errorMessage)
+            }
+        }
     }
 }
