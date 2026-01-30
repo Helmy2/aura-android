@@ -68,7 +68,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsScreenContent(
+fun SettingsScreenContent(
     state: SettingsState,
     onThemeSelected: (ThemeMode) -> Unit,
     snackbarHostState: SnackbarHostState

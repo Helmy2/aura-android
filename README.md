@@ -96,6 +96,43 @@ export GITHUB_TOKEN=your_token
 ./gradlew test
 ```
 
+## Testing
+
+### Unit Testing
+The project includes unit tests for various components using Kotlin's standard testing tools and Mockito/MockK. Coverage includes:
+- **ViewModels**: Logic and state management for all features.
+- **Navigation**: Route handling and navigation state.
+- **Utilities**: Extension functions and helper classes.
+- **Data Layer**: Download management and background tasks.
+
+To run all unit tests:
+```bash
+./gradlew test
+```
+
+### Screenshot Testing
+Aura uses the native Android Compose Screenshot Testing tool. The screens are designed for testability using stateless `Content` composables, enabling validation of various UI states including:
+- **Loading/Skeleton** states
+- **Empty/No Results** views
+- **Error/Message** states
+- **Pagination Loading**
+- **Theme Modes** (System and Light)
+
+#### Run Screenshot Tests
+To validate the current UI against stored reference images:
+```bash
+./gradlew validateDebugScreenshotTest
+```
+
+#### Update Reference Images
+To generate or update reference images after intentional UI changes:
+```bash
+./gradlew updateDebugScreenshotTest
+```
+
+> [!NOTE]
+> All screenshot tests focus on **Light Mode** and **System Theme** default states to ensure core UI stability.
+
 ## License
 
 This project is proprietary software.

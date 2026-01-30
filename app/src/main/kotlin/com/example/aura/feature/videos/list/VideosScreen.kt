@@ -2,7 +2,9 @@ package com.example.aura.feature.videos.list
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -17,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.example.aura.R
+import com.example.aura.domain.model.Video
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
@@ -30,10 +33,14 @@ fun VideosScreen(
     viewModel: VideosViewModel = koinViewModel()
 ) {
     val state by viewModel.collectAsState()
-    val listState = rememberLazyStaggeredGridState()
     val snackbarHostState = remember { SnackbarHostState() }
     val searchState = rememberTextFieldState()
 
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+
+    val listState = rememberLazyStaggeredGridState()
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
@@ -44,10 +51,6 @@ fun VideosScreen(
                     !state.isPaginationLoading &&
                     !state.isEndReached
         }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.onCreate()
     }
 
     LaunchedEffect(shouldLoadMore) {
@@ -70,12 +73,37 @@ fun VideosScreen(
         }
     }
 
+    VideosScreenContent(
+        state = state,
+        snackbarHostState = snackbarHostState,
+        searchState = searchState,
+        listState = listState,
+        onBackClick = viewModel::onBackClicked,
+        onVideoClick = viewModel::onVideoClicked,
+        onFavoriteClick = viewModel::onFavoriteClicked,
+        onSearchTriggered = viewModel::onSearchTriggered,
+        onClearSearch = viewModel::onClearSearch
+    )
+}
+
+@Composable
+fun VideosScreenContent(
+    state: VideosState,
+    snackbarHostState: SnackbarHostState,
+    searchState: TextFieldState,
+    listState: LazyStaggeredGridState = rememberLazyStaggeredGridState(),
+    onBackClick: () -> Unit,
+    onVideoClick: (Video) -> Unit,
+    onFavoriteClick: (Video) -> Unit,
+    onSearchTriggered: (String) -> Unit,
+    onClearSearch: () -> Unit
+) {
     AuraScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AuraTransparentTopBar(
                 title = stringResource(R.string.videos),
-                onBackClick = viewModel::onBackClicked
+                onBackClick = onBackClick
             )
         }
     ) { padding ->
@@ -89,16 +117,17 @@ fun VideosScreen(
             } else {
                 VideoGallery(
                     contentPadding = padding,
+                    listState = listState,
                     videos = if (state.isSearchMode) state.searchVideos else state.popularVideos,
-                    onVideoClick = viewModel::onVideoClicked,
-                    onFavoriteClick = viewModel::onFavoriteClicked,
+                    onVideoClick = onVideoClick,
+                    onFavoriteClick = onFavoriteClick,
                     isLoading = state.isLoading,
                     isPaginationLoading = state.isPaginationLoading,
                     searchAppBar = {
                         AuraSearchBar(
                             state = searchState,
-                            onSearch = viewModel::onSearchTriggered,
-                            onClearSearch = viewModel::onClearSearch
+                            onSearch = onSearchTriggered,
+                            onClearSearch = onClearSearch
                         )
                     },
                     emptyContent = {

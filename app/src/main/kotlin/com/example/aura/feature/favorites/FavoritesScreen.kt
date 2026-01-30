@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.aura.R
+import com.example.aura.domain.model.MediaContent
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.MediaContentGallery
 import org.orbitmvi.orbit.compose.collectAsState
@@ -50,6 +51,21 @@ fun FavoritesScreen(
         }
     }
 
+    FavoritesScreenContent(
+        state = state,
+        snackbarHostState = snackbarHostState,
+        onItemClick = viewModel::onItemClicked,
+        onRemoveFavorite = viewModel::onRemoveFavorite
+    )
+}
+
+@Composable
+fun FavoritesScreenContent(
+    state: FavoritesState,
+    snackbarHostState: SnackbarHostState,
+    onItemClick: (MediaContent) -> Unit,
+    onRemoveFavorite: (MediaContent) -> Unit
+) {
     AuraScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -64,8 +80,8 @@ fun FavoritesScreen(
                 MediaContentGallery(
                     contentPadding = padding,
                     items = state.items,
-                    onItemClick = viewModel::onItemClicked,
-                    onFavoriteClick = viewModel::onRemoveFavorite,
+                    onItemClick = onItemClick,
+                    onFavoriteClick = onRemoveFavorite,
                     isLoading = state.isLoading,
                     emptyContent = { EmptyFavoritesView() }
                 )
