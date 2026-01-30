@@ -133,7 +133,7 @@ tasks.register("updateScreenshotGallery") {
                     .removeSuffix("ScreenshotTest")
                     .replace(Regex("([a-z])([A-Z])"), "$1 $2")
                 val relativePath = image.relativeTo(rootDir).path.replace("\\", "/")
-                sb.append("| $label | ![$label]($relativePath) |\n")
+                sb.append("| $label | <img src=\"$relativePath\" alt=\"$label\" width=\"300\"> |\n")
             }
             sb.append("\n")
         }
@@ -144,7 +144,6 @@ tasks.register("updateScreenshotGallery") {
     }
 }
 
-// Wait until after project evaluation to configure the finalization
 afterEvaluate {
     tasks.named("updateDebugScreenshotTest") {
         finalizedBy("updateScreenshotGallery")

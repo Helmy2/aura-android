@@ -126,9 +126,14 @@ To validate the current UI against stored reference images:
 
 #### Update Reference Images
 To generate or update reference images after intentional UI changes:
+
 ```bash
 ./gradlew updateDebugScreenshotTest
 ```
+This task automatically updates the screenshot gallery after completion.
+
+#### View Screenshot Gallery
+Browse all reference screenshots in the [Screenshot Gallery](SCREENSHOTS.md). The gallery is automatically generated when screenshot tests are updated and provides a visual reference of all tested UI states across the application.
 
 > [!NOTE]
 > All screenshot tests focus on **Light Mode** and **System Theme** default states to ensure core UI stability.
