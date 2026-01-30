@@ -106,14 +106,11 @@ class AppNavigator(
      */
     fun navigateToTopLevel(destination: Destination) {
         if (backStack.firstOrNull() == destination) {
-            // Re-selected current tab: Pop everything above the root
             if (backStack.size > 1) {
                 backStack.removeRange(1, backStack.size)
             }
         } else {
-            // Switch tab: Reset stack completely
             backStack.clear()
-            backStack.add(Destination.Home)
             backStack.add(destination)
         }
     }

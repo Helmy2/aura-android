@@ -1,7 +1,9 @@
 package com.example.aura.feature.wallpaper.detail
 
+import androidx.compose.runtime.Immutable
 import com.example.aura.domain.model.Wallpaper
 
+@Immutable
 data class WallpaperDetailState(
     val wallpaper: Wallpaper? = null,
     val isLoading: Boolean = true,

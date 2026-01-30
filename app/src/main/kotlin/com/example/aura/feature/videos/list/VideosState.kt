@@ -1,7 +1,9 @@
 package com.example.aura.feature.videos.list
 
+import androidx.compose.runtime.Immutable
 import com.example.aura.domain.model.Video
 
+@Immutable
 data class VideosState(
     val popularVideos: List<Video> = emptyList(),
     val searchVideos: List<Video> = emptyList(),
@@ -10,7 +12,8 @@ data class VideosState(
     val error: String? = null,
     val currentPage: Int = 1,
     val isEndReached: Boolean = false,
-    val isSearchMode: Boolean = false
+    val isSearchMode: Boolean = false,
+    val searchQuery: String = ""
 )
 
 sealed interface VideosEffect {

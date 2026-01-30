@@ -33,12 +33,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.window.core.layout.WindowSizeClass
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.example.aura.R
 import com.example.aura.domain.model.Video
 import com.example.aura.shared.core.extensions.plus
 import com.example.aura.shared.core.extensions.shimmerEffect
@@ -183,7 +185,7 @@ fun VideoItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.play),
                     tint = Color.White.copy(alpha = 0.8f),
                     modifier = Modifier
                         .size(48.dp)

@@ -4,14 +4,13 @@ import androidx.lifecycle.ViewModel
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.domain.repository.FavoritesRepository
 import com.example.aura.domain.repository.WallpaperRepository
-import com.example.aura.shared.core.mvi.ContainerHost
-import com.example.aura.shared.core.mvi.container
-import com.example.aura.shared.core.mvi.intent
 import com.example.aura.shared.navigation.AppNavigator
 import com.example.aura.shared.navigation.Destination
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import org.orbitmvi.orbit.ContainerHost
+import org.orbitmvi.orbit.viewmodel.container
 
 class WallpaperListViewModel(
     private val wallpaperRepository: WallpaperRepository,
@@ -21,9 +20,7 @@ class WallpaperListViewModel(
 
     override val container = container<WallpaperListState, WallpaperListEffect>(WallpaperListState())
 
-    private var currentActiveQuery: String = ""
-
-    init {
+    fun onCreate() = intent {
         loadWallpapers(page = 1)
         observeFavorites()
     }
@@ -46,7 +43,7 @@ class WallpaperListViewModel(
             }
         } catch (e: Exception) {
             reduce {
-                copy(isLoading = false, isPaginationLoading = false, error = e.message)
+                state.copy(isLoading = false, isPaginationLoading = false, error = e.message)
             }
             postSideEffect(
                 WallpaperListEffect.ShowError(e.message ?: "Failed to load wallpapers")
@@ -55,7 +52,7 @@ class WallpaperListViewModel(
     }
 
     private fun performSearch(query: String, page: Int) = intent {
-        currentActiveQuery = query
+        reduce { state.copy(searchQuery = query) }
 
         try {
             val results = wallpaperRepository.searchWallpapers(query, page)
@@ -73,7 +70,7 @@ class WallpaperListViewModel(
             }
         } catch (_: Exception) {
             reduce {
-                copy(isLoading = false, isPaginationLoading = false)
+                state.copy(isLoading = false, isPaginationLoading = false)
             }
             postSideEffect(WallpaperListEffect.ShowError("Search failed"))
         }
@@ -91,10 +88,10 @@ class WallpaperListViewModel(
         if (state.isPaginationLoading || state.isEndReached) return@intent
 
         val nextPage = state.currentPage + 1
-        reduce { copy(isPaginationLoading = true) }
+        reduce { state.copy(isPaginationLoading = true) }
 
         if (state.isSearchMode) {
-            performSearch(currentActiveQuery, nextPage)
+            performSearch(state.searchQuery, nextPage)
         } else {
             loadWallpapers(nextPage)
         }
@@ -104,11 +101,12 @@ class WallpaperListViewModel(
         if (query.isBlank()) return@intent
 
         reduce {
-            copy(
+            state.copy(
                 isSearchMode = true,
                 isLoading = true,
                 isEndReached = false,
                 currentPage = 1,
+                searchQuery = query,
                 searchWallpapers = emptyList()
             )
         }
@@ -117,13 +115,12 @@ class WallpaperListViewModel(
     }
 
     fun onClearSearch() = intent {
-        currentActiveQuery = ""
-
         reduce {
-            copy(
+            state.copy(
                 isSearchMode = false,
                 isEndReached = false,
-                currentPage = 1
+                currentPage = 1,
+                searchQuery = ""
             )
         }
 

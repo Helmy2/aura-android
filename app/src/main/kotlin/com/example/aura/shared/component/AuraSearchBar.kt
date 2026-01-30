@@ -26,8 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.example.aura.R
 
 @Composable
 fun AuraSearchBar(
@@ -35,7 +37,7 @@ fun AuraSearchBar(
     onSearch: (String) -> Unit,
     onClearSearch: () -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "Search..."
+    placeholder: String = stringResource(R.string.search_placeholder)
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -54,7 +56,7 @@ fun AuraSearchBar(
             IconButton(onClick = {}) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Search"
+                    contentDescription = stringResource(R.string.search)
                 )
             }
 
@@ -100,7 +102,7 @@ fun AuraSearchBar(
                 }) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Clear text"
+                        contentDescription = stringResource(R.string.clear_text)
                     )
                 }
             }

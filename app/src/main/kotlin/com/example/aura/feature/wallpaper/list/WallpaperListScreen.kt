@@ -2,7 +2,9 @@ package com.example.aura.feature.wallpaper.list
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -15,12 +17,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.example.aura.R
+import com.example.aura.domain.model.Wallpaper
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.AuraSearchBar
 import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.WallpaperGallery
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -44,13 +49,17 @@ fun WallpaperListScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
             viewModel.onLoadNextPage()
         }
     }
 
-    viewModel.CollectSideEffect { effect ->
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is WallpaperListEffect.ShowError -> {
                 snackbarHostState.showSnackbar(
@@ -64,19 +73,44 @@ fun WallpaperListScreen(
         }
     }
 
+    WallpaperListScreenContent(
+        state = state,
+        snackbarHostState = snackbarHostState,
+        searchState = searchState,
+        listState = listState,
+        onBackClick = viewModel::onBackClicked,
+        onWallpaperClick = viewModel::onWallpaperClicked,
+        onToggleFavorite = viewModel::onToggleFavorite,
+        onSearchTriggered = viewModel::onSearchTriggered,
+        onClearSearch = viewModel::onClearSearch
+    )
+}
+
+@Composable
+fun WallpaperListScreenContent(
+    state: WallpaperListState,
+    snackbarHostState: SnackbarHostState,
+    searchState: TextFieldState,
+    listState: LazyStaggeredGridState = rememberLazyStaggeredGridState(),
+    onBackClick: () -> Unit,
+    onWallpaperClick: (Wallpaper) -> Unit,
+    onToggleFavorite: (Wallpaper) -> Unit,
+    onSearchTriggered: (String) -> Unit,
+    onClearSearch: () -> Unit
+) {
     AuraScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AuraTransparentTopBar(
-                title = "Wallpapers",
-                onBackClick = viewModel::onBackClicked
+                title = stringResource(R.string.wallpapers),
+                onBackClick = onBackClick
             )
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             if (state.error != null && state.wallpapers.isEmpty()) {
                 Text(
-                    text = "Error: ${state.error}",
+                    text = stringResource(id = R.string.search_failed) + ": ${state.error}",
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
@@ -86,19 +120,19 @@ fun WallpaperListScreen(
                     listState = listState,
                     wallpapers = if (state.isSearchMode) state.searchWallpapers
                     else state.wallpapers,
-                    onWallpaperClick = viewModel::onWallpaperClicked,
-                    onWallpaperFavoriteClick = viewModel::onToggleFavorite,
+                    onWallpaperClick = onWallpaperClick,
+                    onWallpaperFavoriteClick = onToggleFavorite,
                     isPaginationLoading = state.isPaginationLoading,
                     isLoading = state.isLoading,
                     searchAppBar = {
                         AuraSearchBar(
                             state = searchState,
-                            onSearch = viewModel::onSearchTriggered,
-                            onClearSearch = viewModel::onClearSearch
+                            onSearch = onSearchTriggered,
+                            onClearSearch = onClearSearch
                         )
                     },
                     emptyContent = {
-                        Text(text = "No results found")
+                        Text(text = stringResource(R.string.no_results))
                     }
                 )
             }

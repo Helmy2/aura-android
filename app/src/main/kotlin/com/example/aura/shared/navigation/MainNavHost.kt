@@ -11,6 +11,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuite
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -29,7 +30,7 @@ import com.example.aura.feature.wallpaper.list.WallpaperListScreen
 fun MainNavHost(
     shouldSowNavigationBar: Boolean,
     navController: AppNavigator,
-    modifier: Modifier = Modifier.Companion,
+    modifier: Modifier = Modifier,
     listDetailStrategy: ListDetailSceneStrategy<NavKey> = rememberListDetailSceneStrategy(),
 ) {
     NavigationSuiteScaffoldLayout(
@@ -51,11 +52,11 @@ fun MainNavHost(
                                     } else {
                                         topLevelRoute.unselectedIcon
                                     },
-                                    contentDescription = null
+                                    contentDescription = stringResource(topLevelRoute.titleRes)
                                 )
                             },
                             label = {
-                                Text(topLevelRoute.title)
+                                Text(stringResource(topLevelRoute.titleRes))
                             },
                         )
                     }

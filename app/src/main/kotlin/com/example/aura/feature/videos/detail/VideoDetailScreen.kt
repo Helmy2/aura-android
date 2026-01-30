@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -48,10 +49,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
+import com.example.aura.R
 import com.example.aura.domain.model.Video
 import com.example.aura.shared.component.AuraScaffold
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import com.example.aura.shared.theme.dimens
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
@@ -69,7 +71,7 @@ fun VideoDetailScreen(
         viewModel.loadVideo(video)
     }
 
-    viewModel.CollectSideEffect { effect ->
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is VideoDetailEffect.ShowMessage -> {
                 snackbarHostState.showSnackbar(effect.message)
@@ -100,8 +102,19 @@ fun VideoDetailScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { exoPlayer.release() }
+    var isPlayerPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
+
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                isPlayerPlaying = isPlaying
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
     }
 
     AuraScaffold(
@@ -123,7 +136,7 @@ fun VideoDetailScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back),
                         tint = Color.White
                     )
                 }
@@ -141,7 +154,7 @@ fun VideoDetailScreen(
                     Icon(
                         imageVector = if (isFavorite) Icons.Default.Favorite
                         else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
+                        contentDescription = stringResource(R.string.favorite),
                         tint = if (isFavorite) Color.Red else Color.White
                     )
                 }
@@ -162,7 +175,7 @@ fun VideoDetailScreen(
                     } else {
                         Icon(
                             imageVector = Icons.Default.Download,
-                            contentDescription = "Download",
+                            contentDescription = stringResource(R.string.download),
                             tint = Color.White
                         )
                     }
@@ -183,8 +196,8 @@ fun VideoDetailScreen(
 
                 var areControlsVisible by remember { mutableStateOf(true) }
 
-                LaunchedEffect(areControlsVisible, exoPlayer.isPlaying) {
-                    if (areControlsVisible && exoPlayer.isPlaying) {
+                LaunchedEffect(areControlsVisible, isPlayerPlaying) {
+                    if (areControlsVisible && isPlayerPlaying) {
                         delay(3000)
                         areControlsVisible = false
                     }
@@ -209,7 +222,7 @@ fun VideoDetailScreen(
                     )
 
                     AnimatedVisibility(
-                        visible = areControlsVisible || !exoPlayer.isPlaying,
+                        visible = areControlsVisible || !isPlayerPlaying,
                         enter = fadeIn(),
                         exit = fadeOut(),
                         modifier = Modifier.fillMaxSize()
@@ -219,7 +232,7 @@ fun VideoDetailScreen(
                                 .fillMaxSize()
                                 .background(Color.Black.copy(alpha = 0.3f))
                         ) {
-                            val showButton = areControlsVisible || !exoPlayer.isPlaying
+                            val showButton = areControlsVisible || !isPlayerPlaying
 
                             AnimatedVisibility(
                                 visible = showButton,
@@ -257,7 +270,7 @@ fun PlayPauseButton(player: Player, modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = if (state.showPlay) "Play" else "Pause",
+            contentDescription = if (state.showPlay) stringResource(R.string.play) else stringResource(R.string.pause),
             tint = Color.White,
             modifier = Modifier.fillMaxSize()
         )

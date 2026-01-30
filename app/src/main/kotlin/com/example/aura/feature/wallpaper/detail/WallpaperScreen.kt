@@ -26,7 +26,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.aura.R
 import com.example.aura.domain.model.Wallpaper
 import com.example.aura.shared.component.AuraImage
 import com.example.aura.shared.component.AuraScaffold
@@ -34,8 +36,8 @@ import com.example.aura.shared.component.AuraTransparentTopBar
 import com.example.aura.shared.component.FavoriteButton
 import com.example.aura.shared.component.SystemBarStyle
 import com.example.aura.shared.core.extensions.toColor
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -53,7 +55,7 @@ fun WallpaperScreen(
         viewModel.loadWallpaper(wallpaper)
     }
 
-    viewModel.CollectSideEffect { effect ->
+    viewModel.collectSideEffect { effect ->
         when (effect) {
             is WallpaperDetailEffect.ShowMessage -> {
                 snackbarState.showSnackbar(effect.message)
@@ -105,7 +107,7 @@ fun WallpaperScreen(
             ) {
                 AuraTransparentTopBar(
                     contentColor = Color.White,
-                    title = "Details",
+                    title = stringResource(R.string.details),
                     onBackClick = viewModel::onBackClicked,
                     actions = {
                         state.wallpaper?.let { currentWallpaper ->
@@ -127,7 +129,7 @@ fun WallpaperScreen(
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Download,
-                                        contentDescription = "Download",
+                                        contentDescription = stringResource(R.string.download),
                                         tint = Color.White
                                     )
                                 }
@@ -145,7 +147,7 @@ fun WallpaperScreen(
         ) {
             AuraImage(
                 imageUrl = state.wallpaper?.imageUrl,
-                contentDescription = null,
+                contentDescription = state.wallpaper?.photographer,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.align(Alignment.Center)
             )
@@ -165,18 +167,20 @@ fun WallpaperScreen(
                     )
             )
 
-            AnimatedVisibility(
-                state.wallpaper != null,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(MaterialTheme.dimens.screenPadding)
-                    .padding(bottom = padding.calculateBottomPadding())
-            ) {
-                Text(
-                    text = state.wallpaper!!.photographer,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
-                )
+            state.wallpaper?.let { wallpaperData ->
+                AnimatedVisibility(
+                    visible = true,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(MaterialTheme.dimens.screenPadding)
+                        .padding(bottom = padding.calculateBottomPadding())
+                ) {
+                    Text(
+                        text = wallpaperData.photographer,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White
+                    )
+                }
             }
         }
     }

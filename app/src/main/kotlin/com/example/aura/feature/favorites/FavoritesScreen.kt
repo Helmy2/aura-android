@@ -14,16 +14,20 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.aura.R
+import com.example.aura.domain.model.MediaContent
 import com.example.aura.shared.component.AuraScaffold
 import com.example.aura.shared.component.MediaContentGallery
-import com.example.aura.shared.core.mvi.CollectSideEffect
-import com.example.aura.shared.core.mvi.collectAsState
+import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import com.example.aura.shared.theme.dimens
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -35,7 +39,11 @@ fun FavoritesScreen(
     val state by viewModel.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    viewModel.CollectSideEffect {
+    LaunchedEffect(Unit) {
+        viewModel.onCreate()
+    }
+
+    viewModel.collectSideEffect {
         when (it) {
             is FavoritesEffect.ShowUserMessage -> {
                 snackbarHostState.showSnackbar(it.message)
@@ -43,13 +51,28 @@ fun FavoritesScreen(
         }
     }
 
+    FavoritesScreenContent(
+        state = state,
+        snackbarHostState = snackbarHostState,
+        onItemClick = viewModel::onItemClicked,
+        onRemoveFavorite = viewModel::onRemoveFavorite
+    )
+}
+
+@Composable
+fun FavoritesScreenContent(
+    state: FavoritesState,
+    snackbarHostState: SnackbarHostState,
+    onItemClick: (MediaContent) -> Unit,
+    onRemoveFavorite: (MediaContent) -> Unit
+) {
     AuraScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Box {
             if (state.error != null) {
                 Text(
-                    text = "Error: ${state.error}",
+                    text = stringResource(id = R.string.search_failed) + ": ${state.error}",
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
@@ -57,8 +80,8 @@ fun FavoritesScreen(
                 MediaContentGallery(
                     contentPadding = padding,
                     items = state.items,
-                    onItemClick = viewModel::onItemClicked,
-                    onFavoriteClick = viewModel::onRemoveFavorite,
+                    onItemClick = onItemClick,
+                    onFavoriteClick = onRemoveFavorite,
                     isLoading = state.isLoading,
                     emptyContent = { EmptyFavoritesView() }
                 )
@@ -70,7 +93,7 @@ fun FavoritesScreen(
 @Composable
 private fun EmptyFavoritesView(
     modifier: Modifier = Modifier,
-    message: String = "No favorites yet"
+    message: String = stringResource(R.string.no_favorites)
 ) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -94,7 +117,7 @@ private fun EmptyFavoritesView(
             )
 
             Text(
-                text = "Start adding items by tapping the heart icon",
+                text = stringResource(R.string.start_adding_favorites),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 textAlign = TextAlign.Center,
